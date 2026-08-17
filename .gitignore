@@ -1,0 +1,140 @@
+# ===========================================
+# Node/TypeScript
+# ===========================================
+node_modules/
+dist/
+build/
+.tmp/
+.cache/
+*.log
+npm-debug.log*
+yarn-error.log*
+
+# pnpm store (local cache, not lockfile)
+.pnpm-store/
+
+# NOTE: pnpm-lock.yaml should be COMMITTED for reproducible builds
+# Do NOT add pnpm-lock.yaml here
+
+# ===========================================
+# Python
+# ===========================================
+__pycache__/
+*.py[cod]
+*.pyo
+*.so
+*.egg-info/
+.eggs/
+.mypy_cache/
+.pytest_cache/
+.coverage
+coverage.xml
+.venv/
+venv/
+env/
+
+# External Python dependencies (installed via pip)
+py_modules/*
+# But include our plugin module
+!py_modules/unifideck/
+!py_modules/unifideck/**
+
+# ===========================================
+# Build Output
+# ===========================================
+out/
+
+# ===========================================
+# Environment and Secrets
+# ===========================================
+.env
+.env.*
+!.env.example
+
+# ===========================================
+# Editor and OS
+# ===========================================
+.idea/
+.DS_Store
+Thumbs.db
+*.backup
+
+# ===========================================
+# Test and Debug Files
+# ===========================================
+#tests/
+
+# ===========================================
+# Development Tools
+# ===========================================
+# Decky CLI tool (downloaded by setup script)
+cli/
+
+# Build script - should be tracked for collaboration
+# build-plugin.sh
+
+# Agent/AI assistant configs
+.agent/
+
+# Research notes
+research/
+
+# ===========================================
+# Large Binaries (downloaded at build time)
+# ===========================================
+# Visual C++ redistributable
+vc_redist.x64.exe
+
+# Downloaded by build-plugin.sh prebuild step
+bin/legendary
+bin/gogdl
+bin/nile
+bin/winetricks
+bin/comet
+
+# Per-binary download stamps. Each holds the version-pinned URL the adjacent
+# binary came from, so a rebuild skips re-fetching ~28 MB it already has.
+bin/*.url
+bin/*.new
+
+# EpicGamesLauncher stub (should be committed if custom)
+# bin/EpicGamesLauncher.exe
+
+# Stubs directory (Galaxy stubs - should be committed)
+# bin/stubs/
+
+# Prefetch/installer scripts (should be committed)
+# bin/prefetch_winetricks.py
+# bin/winetricks_installer.py
+antigravity-dashboard/*
+!test_gog_lang.py
+!test_gog_dynamic.py
+!test_gog_invalid.py
+task.md
+.claude/*
+CLAUDE.md
+build-plugin_old.sh
+.github/copilot-instructions.md
+__pycache__
+*.pyc
+.vscode
+.vscode/extensions.json
+CODE_PATTERNS.md
+EXPLORATION_INDEX.md
+QUICK_REFERENCE.md
+UNIFIDECK_UBISOFT_EXPLORATION.md
+test_shortcut_launch.py
+test_upc_auth_launch.sh
+
+# Archived Ubisoft docs — retained locally, intentionally kept out of version control
+docs/archive/UBISOFT_INTEGRATION_FIXES.md
+docs/archive/ubisoft-store-spec-v1.md
+build-plugin_old-backup.sh
+build-plugin.sh
+build-plugin.sh
+test_ubisoft_launch.py
+/tmp
+docs/feasibility/battlenet.md
+docs/feasibility/ea.md
+docs/feasibility/itch.md
+docs/feasibility/README.md

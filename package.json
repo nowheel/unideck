@@ -1,0 +1,129 @@
+{
+  "name": "unifideck-decky",
+  "version": "0.7.3",
+  "description": "Unified game library for Steam Deck — browse, install and launch games from Epic Games, GOG, Amazon, Ubisoft and Microsoft xCloud directly inside Steam's interface. Built on a 5-layer architecture with EventBus, service DI, and 90%+ test coverage.",
+  "type": "module",
+  "scripts": {
+    "build": "rollup -c rollup.config.mjs",
+    "watch": "rollup -c -w",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:backend": "python3 -m pytest py_modules/ --cov=py_modules/unifideck --cov-report=term-missing -q",
+    "test:all": "npm run test:coverage && npm run test:backend",
+    "lint": "eslint src/ --ext .ts,.tsx",
+    "lint:fix": "eslint src/ --ext .ts,.tsx --fix",
+    "check:prettier": "prettier --config .prettierrc --check .",
+    "fix:prettier": "prettier --config .prettierrc --write .",
+    "typecheck": "tsc --noEmit"
+  },
+  "lint-staged": {
+    "*.{js,ts,jsx,tsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md,yml}": "prettier --write"
+  },
+  "keywords": [
+    "decky",
+    "plugin",
+    "steamdeck",
+    "epic",
+    "gog",
+    "amazon",
+    "ubisoft",
+    "microsoft",
+    "xcloud",
+    "library",
+    "multi-store"
+  ],
+  "author": "mubaraknuman",
+  "license": "GPL-3.0-or-later",
+  "devDependencies": {
+    "@decky/rollup": "^1.0.2",
+    "@rollup/plugin-commonjs": "^29.0.0",
+    "@rollup/plugin-json": "^6.1.0",
+    "@rollup/plugin-node-resolve": "^16.0.3",
+    "@rollup/plugin-replace": "^6.0.3",
+    "@rollup/plugin-typescript": "^12.3.0",
+    "@testing-library/react": "^16.1.0",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@types/react": "^19.1.1",
+    "@types/react-dom": "^19.1.1",
+    "@types/webpack": "^5.28.5",
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0",
+    "eslint": "^8.57.0",
+    "eslint-config-prettier": "^8.5.0",
+    "eslint-plugin-jsx-a11y": "^6.10.0",
+    "eslint-plugin-prettier": "^4.0.0",
+    "eslint-plugin-react": "^7.37.0",
+    "eslint-plugin-react-hooks": "^5.0.0",
+    "jsdom": "^25.0.0",
+    "lint-staged": "^16.2.7",
+    "prettier": "^2.8.8",
+    "rollup": "^4.53.3",
+    "typescript": "^5.6.2",
+    "vitest": "^2.1.0",
+    "@vitest/coverage-v8": "^2.1.0"
+  },
+  "dependencies": {
+    "@decky/api": "^1.1.3",
+    "@decky/ui": "^4.11.1",
+    "i18next": "^25.7.4",
+    "react-i18next": "^16.5.3",
+    "react-icons": "^5.3.0",
+    "tslib": "^2.7.0"
+  },
+  "pnpm": {
+    "peerDependencyRules": {
+      "ignoreMissing": [
+        "react",
+        "react-dom"
+      ]
+    },
+    "supportedArchitectures": {
+      "os": [
+        "current",
+        "linux"
+      ],
+      "cpu": [
+        "current",
+        "x64"
+      ],
+      "libc": [
+        "current",
+        "musl",
+        "glibc"
+      ]
+    }
+  },
+  "remote_binary_bundling": true,
+  "remote_binary": [
+    {
+      "sha256hash": "2b82497051afd95670994146e6038d6e1c98a1c60c21949def668b52aef7d3f7",
+      "url": "https://github.com/Heroic-Games-Launcher/legendary/releases/download/0.20.43/legendary_linux_x86_64",
+      "name": "legendary"
+    },
+    {
+      "sha256hash": "d1f9f9a730ff442409bc11b14ae9ec410e5e45492f32899076481e58dd451117",
+      "url": "https://github.com/Heroic-Games-Launcher/heroic-gogdl/releases/download/v1.2.2/gogdl_linux_x86_64",
+      "name": "gogdl"
+    },
+    {
+      "sha256hash": "431f82fc74000e6c864409f1d8fb495d696c03928808e3e8acffc45179312a7b",
+      "url": "https://raw.githubusercontent.com/Winetricks/winetricks/20260125/src/winetricks",
+      "name": "winetricks"
+    },
+    {
+      "sha256hash": "3a8c080c864a5952a01d7661693c60727b34a355ae21e9eab2047096b606c1df",
+      "url": "https://github.com/imLinguin/nile/releases/download/v1.1.2/nile_linux_x86_64",
+      "name": "nile"
+    },
+    {
+      "sha256hash": "2d6694d544fd3155d90d540e70bc1be767a6b9fdda130275f2b79616ff14e843",
+      "url": "https://github.com/imLinguin/comet/releases/download/v0.3.2/comet-x86_64-unknown-linux-gnu",
+      "name": "comet"
+    }
+  ]
+}
