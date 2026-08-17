@@ -41,6 +41,7 @@ import { FC, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Focusable, GamepadButton, Navigation, SteamSpinner } from "@decky/ui";
 import { useTranslation } from "react-i18next";
 import { RootProvider } from "../contexts/RootProvider";
+import { useSync } from "../contexts/SyncContext";
 import { useRPCQuery } from "../api/useRPC";
 import { rpcRoutes } from "../api/rpc-routes";
 import { CatalogueGrid, PAGE_SIZE } from "./unifideck-page/CatalogueGrid";
@@ -90,6 +91,7 @@ const STEAM_BOTTOM_INSET = 36;
 
 const UnifideckPageInner: FC = () => {
   const { t } = useTranslation();
+  const sync = useSync();
 
   const {
     data: games,
@@ -178,13 +180,61 @@ const UnifideckPageInner: FC = () => {
 
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  /**
+   * Auto-hiding header.
+   *
+   * The rail costs ~90px of a 534px viewport — most of a tile row — and
+   * once you are deep in the grid it is just a lid. So it slides away.
+   *
+   * The hard part is guaranteeing it comes *back*, because with a stick
+   * focus is the cursor: hide the thing focus needs to reach and the
+   * filters become unreachable. The obvious guard is to pin the rail
+   * open while focus is inside it, and that is what this first did.
+   *
+   * It is not used, because it could not be verified. Driving focus
+   * from outside showed `document.activeElement` moving into the rail
+   * while **no `focusin` event fired at all** — not on the rail, not on
+   * `document`. React renders into the Big Picture document from a
+   * different realm, so its delegated listeners may well still see
+   * those events; the point is that nothing available here can prove
+   * it, and a safety property that cannot be tested is not one.
+   *
+   * Scroll direction can be tested, so the guarantee rests on that
+   * instead: any upward scroll brings the rail back. Steam scrolls a
+   * newly focused element into view, so moving focus up from the top
+   * row scrolls the container up, which reveals the rail — the same
+   * outcome, reached through a path that can be checked. `onFocusWithin`
+   * is still wired as a second, redundant trigger: if those events do
+   * arrive, the rail returns a frame sooner and nothing is worse if
+   * they never do.
+   */
+  const [railHiddenByScroll, setRailHiddenByScroll] = useState(false);
+  const [railFocused, setRailFocused] = useState(false);
+  const lastScrollTop = useRef(0);
+  const railHidden = railHiddenByScroll && !railFocused;
+
+  const onScroll = useCallback(() => {
+    const top = scrollRef.current?.scrollTop ?? 0;
+    const previous = lastScrollTop.current;
+    lastScrollTop.current = top;
+    // Near the top the rail is always shown; scrolling up in any amount
+    // brings it back; only sustained downward travel hides it. The 96px
+    // floor keeps a short nudge from swallowing the filters.
+    if (top <= 8) setRailHiddenByScroll(false);
+    else if (top < previous) setRailHiddenByScroll(false);
+    else if (top > 96) setRailHiddenByScroll(true);
+  }, []);
+
   const goToPage = useCallback(
     (next: number) => {
       const clamped = Math.max(0, Math.min(next, pages - 1));
       setPage(clamped);
       // The grid remounts on a page change, but the scroll container
-      // does not — without this the new page opens mid-scroll.
+      // does not — without this the new page opens mid-scroll, with the
+      // rail still tucked away from the previous page's scrolling.
       scrollRef.current?.scrollTo({ top: 0 });
+      setRailHiddenByScroll(false);
+      lastScrollTop.current = 0;
     },
     [pages],
   );
@@ -374,6 +424,7 @@ const UnifideckPageInner: FC = () => {
           bottom of the viewport when a page is only half full. */}
       <div
         ref={scrollRef}
+        onScroll={onScroll}
         style={{ flex: 1, minHeight: 0, overflowY: "auto" }}
       >
         <div
@@ -396,6 +447,11 @@ const UnifideckPageInner: FC = () => {
             onSearch={setSearchText}
             searchLabel={t("unifideckPage.search", "Search")}
             countLabel={`${filtered.length} / ${all.length}`}
+            onSync={() => void sync.startSync()}
+            syncLabel={t("unifideckPage.sync", "Sync")}
+            isSyncing={sync.isSyncing}
+            hidden={railHidden}
+            onFocusWithin={setRailFocused}
           />
 
           <div style={{ flex: 1 }}>

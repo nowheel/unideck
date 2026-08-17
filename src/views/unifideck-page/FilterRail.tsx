@@ -92,6 +92,17 @@ interface Props {
   searchLabel: string;
   /** Label for the "N of M" line, already interpolated. */
   countLabel: string;
+  /** Trigger a library sync; omitted when the context has none. */
+  onSync?: () => void;
+  syncLabel: string;
+  isSyncing: boolean;
+  /**
+   * Slide the rail out of the way. The page decides when — see the
+   * note in `UnifideckPage` about why focus, not just scroll, gates it.
+   */
+  hidden: boolean;
+  /** Reports whether focus currently sits inside the rail. */
+  onFocusWithin: (inside: boolean) => void;
 }
 
 export const FilterRail: FC<Props> = ({
@@ -105,6 +116,11 @@ export const FilterRail: FC<Props> = ({
   onSearch,
   searchLabel,
   countLabel,
+  onSync,
+  syncLabel,
+  isSyncing,
+  hidden,
+  onFocusWithin,
 }) => {
   return (
     <div
@@ -114,6 +130,8 @@ export const FilterRail: FC<Props> = ({
         position: "sticky",
         top: 0,
         zIndex: 3,
+        transform: hidden ? "translateY(-100%)" : "none",
+        transition: "transform 0.22s ease",
         ...glass(GLASS_HEADER),
         // rackdroid's `.cta-panel` warms its top-left corner with an
         // amber wash; over a blur it reads as light caught in the pane.
@@ -126,8 +144,16 @@ export const FilterRail: FC<Props> = ({
         gap: 7,
         flexShrink: 0,
       }}
+      // Capture, not bubble: `Focusable` children stop the bubbling
+      // pair, and the rail must un-hide the moment the stick reaches
+      // any chip inside it.
+      onFocusCapture={() => onFocusWithin(true)}
+      onBlurCapture={() => onFocusWithin(false)}
     >
-      {/* Identity + result count + search. */}
+      {/* Row 1 — identity, count, status axis. Folding the status chips
+          up here rather than giving them a row of their own is worth
+          about 30px, which on a 534px-tall viewport is a third of a
+          tile row. */}
       <div
         style={{
           display: "flex",
@@ -150,63 +176,25 @@ export const FilterRail: FC<Props> = ({
         >
           {countLabel}
         </div>
-        {/* Labelled rather than placeholdered: `TextFieldProps` extends
-            `HTMLAttributes`, not `InputHTMLAttributes`, so `placeholder`
-            is not part of its contract, and TextField resolves to a
-            Steam-internal component we cannot check for prop
-            forwarding. A label we render ourselves is guaranteed to
-            appear and matches the mono chrome besides. */}
-        <div
-          style={{
-            flex: 1,
-            minWidth: 200,
-            maxWidth: 360,
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-          }}
+        <Focusable
+          flow-children="row"
+          style={{ display: "flex", gap: 6, flexWrap: "wrap" }}
         >
-          <span
-            style={{
-              fontFamily: MONO,
-              fontSize: 11,
-              letterSpacing: "0.14em",
-              textTransform: "uppercase",
-              color: C.textFaint,
-              whiteSpace: "nowrap",
-            }}
-          >
-            {searchLabel}
-          </span>
-          <div style={{ flex: 1 }}>
-            <TextField
-              value={searchText}
-              bShowClearAction
-              onChange={(e) => onSearch(e.currentTarget.value)}
-            />
-          </div>
-        </div>
+          {statuses.map((option) => (
+            <Chip
+              key={option.id}
+              active={status === option.id}
+              onActivate={() => onStatus(option.id)}
+            >
+              {option.label}
+            </Chip>
+          ))}
+        </Focusable>
       </div>
 
-      {/* Status axis, then store axis. Two `Focusable` rows rather than
-          one wrapping row: `flow-children="row"` keeps left/right inside
-          a row and lets up/down cross between them, which is what the
-          stick should do at a row boundary. */}
-      <Focusable
-        flow-children="row"
-        style={{ display: "flex", gap: 6, flexWrap: "wrap" }}
-      >
-        {statuses.map((option) => (
-          <Chip
-            key={option.id}
-            active={status === option.id}
-            onActivate={() => onStatus(option.id)}
-          >
-            {option.label}
-          </Chip>
-        ))}
-      </Focusable>
-
+      {/* Row 2 — store axis, then search and sync. `flow-children="row"`
+          keeps left/right inside the row and lets up/down cross to the
+          row above, which is what the stick should do at a boundary. */}
       <Focusable
         flow-children="row"
         style={{ display: "flex", gap: 6, flexWrap: "wrap" }}
@@ -231,6 +219,52 @@ export const FilterRail: FC<Props> = ({
             </Chip>
           );
         })}
+
+        {/* Search sits at the end of the store row rather than owning a
+            row of its own. Labelled rather than placeholdered:
+            `TextFieldProps` extends `HTMLAttributes`, not
+            `InputHTMLAttributes`, so `placeholder` is not in its
+            contract, and `TextField` resolves to a Steam-internal
+            component we cannot check for prop forwarding. A label we
+            render ourselves is guaranteed to appear. */}
+        <div
+          style={{
+            flex: 1,
+            minWidth: 160,
+            maxWidth: 300,
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+          }}
+        >
+          <span
+            style={{
+              fontFamily: MONO,
+              fontSize: 10,
+              letterSpacing: "0.14em",
+              textTransform: "uppercase",
+              color: C.textFaint,
+              whiteSpace: "nowrap",
+            }}
+          >
+            {searchLabel}
+          </span>
+          <div style={{ flex: 1 }}>
+            <TextField
+              value={searchText}
+              bShowClearAction
+              onChange={(e) => onSearch(e.currentTarget.value)}
+            />
+          </div>
+        </div>
+
+        {/* Sync, reachable without leaving the catalogue. Previously
+            this meant backing out to the Quick Access menu. */}
+        {onSync && (
+          <Chip active={false} onActivate={onSync}>
+            {isSyncing ? "…" : syncLabel}
+          </Chip>
+        )}
       </Focusable>
     </div>
   );

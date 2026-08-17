@@ -1028,6 +1028,7 @@
     "tierNative": "Native",
     "tierPlatinum": "Platinum",
     "tierGold": "Gold",
-    "tierBorked": "Borked"
+    "tierBorked": "Borked",
+    "sync": "Sync"
   }
 }
