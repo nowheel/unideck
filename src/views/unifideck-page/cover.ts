@@ -9,101 +9,148 @@
  *
  * The artwork is real, it just does not live in the plugin's cache.
  * Sync writes it into Steam's own grid store keyed by the *shortcut*
- * AppID — `~/.steam/steam/userdata/<uid>/config/grid/<appid>p.jpg` and
- * friends — which is how these games get covers in the native library.
- * So the tile has to ask Steam, not the backend.
+ * AppID, which is how these games get covers in the native library. So
+ * the tile has to ask Steam.
  *
- * `AppOverview` exposes three URL getters. We want the 600×900 portrait
- * (`GetLibraryImageURL`), falling back to the capsule and then the
- * header, because a wide header in a 2:3 slot is still better than an
- * empty tile.
+ * ── Which Steam API ─────────────────────────────────────────────────
  *
- * Every getter is called defensively: these are Steam-internal methods
- * that come and go between client versions, and a missing one must cost
- * a cover, not the page.
+ * Not `SteamClient.Apps.GetAppOverview`: that method does not exist on
+ * this client (verified over CDP against the live Steam UI —
+ * `typeof` is `"undefined"`), which is why routing through
+ * `SteamBridge.getAppOverview` returned `null` for every game and cost
+ * a build with no covers at all. `SteamBridge.isReady()` keys off the
+ * same missing method, so it is not a usable readiness signal either.
+ *
+ * The working path is `window.appStore`:
+ *
+ *   `GetAppOverviewByAppID(appid)` → overview
+ *   `GetCustomVerticalCapsuleURLs(overview)` → the shortcut's own art
+ *
+ * Probing five shortcuts on-device, exactly one candidate ever loaded:
+ * the `.jpg` from `GetCustomVerticalCapsuleURLs`, at 1440×2160 or
+ * 720×1080. The `.png` sibling, both `/assets/…library_600x900.jpg`
+ * forms from `GetCachedVerticalCapsuleURL`, and the CDN URL from
+ * `GetVerticalCapsuleURLForApp` all 404 for non-Steam shortcuts.
+ *
+ * The losers are still returned, last, because they are the paths that
+ * *do* work for real Steam entries — the tile walks the list on error
+ * rather than trusting any single one.
  */
-import { SteamBridge } from "../../lib/steam-bridge";
 import type { Game } from "../../types/api";
 
-/**
- * The bridge is a class rather than a singleton, and holds no state of
- * its own — every method reads through to `window.SteamClient` at call
- * time. One instance for the page is therefore equivalent to the one
- * `index.tsx` builds at boot, and avoids threading it through four
- * layers of props to reach a tile.
- */
-const bridge = new SteamBridge();
+/** The slice of `window.appStore` this module needs. */
+interface AppStore {
+  GetAppOverviewByAppID?: (appId: number) => unknown;
+  GetCustomVerticalCapsuleURLs?: (overview: unknown) => unknown;
+  GetCachedVerticalCapsuleURL?: (overview: unknown) => unknown;
+  GetVerticalCapsuleURLForApp?: (overview: unknown) => unknown;
+}
 
-/**
- * Resolved covers, keyed by the appid we looked up.
- *
- * Paging re-mounts tiles constantly, and without this every page turn
- * would re-enter Steam's app store for covers it has already resolved.
- * `null` is cached too — a game with no artwork should be asked about
- * once, not on every render.
- */
-const cache = new Map<number, string | null>();
-
-/** Names tried in order of preference. */
-const GETTERS = [
-  "GetLibraryImageURL",
-  "GetCapsuleImageURL",
-  "GetHeaderImageURL",
-] as const;
-
-/** Call one of Steam's URL getters, tolerating its absence. */
-function tryGetter(overview: unknown, name: string): string | null {
-  const fn = (overview as Record<string, unknown>)?.[name];
-  if (typeof fn !== "function") return null;
-  try {
-    const url = (fn as () => unknown).call(overview);
-    return typeof url === "string" && url.length > 0 ? url : null;
-  } catch {
-    return null;
-  }
+function appStore(): AppStore | undefined {
+  return (window as unknown as { appStore?: AppStore }).appStore;
 }
 
 /**
- * Resolve the artwork URL for one appid.
+ * Candidate URLs per appid.
+ *
+ * Paging re-mounts tiles constantly; without this every page turn
+ * would re-enter Steam's app store for art it has already resolved.
+ * Empty results are cached too — a game with no artwork should be
+ * asked about once, not on every render.
+ */
+const cache = new Map<number, string[]>();
+
+/** Getters in preference order. See the note on probing above. */
+const GETTERS: readonly (keyof AppStore)[] = [
+  "GetCustomVerticalCapsuleURLs",
+  "GetCachedVerticalCapsuleURL",
+  "GetVerticalCapsuleURLForApp",
+];
+
+/** These return a string on some paths and an array on others. */
+function asUrls(value: unknown): string[] {
+  if (typeof value === "string") return value ? [value] : [];
+  if (Array.isArray(value)) {
+    return value.filter((v): v is string => typeof v === "string" && v !== "");
+  }
+  return [];
+}
+
+/**
+ * All artwork URLs worth trying for one appid, best first.
  *
  * Shortcut AppIDs travel through this codebase in both signed and
- * unsigned 32-bit form — `games.map` stores `-1735172948` for the same
- * app Steam's own log calls `2559794348`. Steam's app store is keyed on
- * the unsigned form, so a signed id looked up as-is simply misses.
- * Both are tried rather than assuming which form arrived.
+ * unsigned 32-bit form — `games.map` stores `-1735172948` for the app
+ * Steam's own store keys as `2559794348`. Steam is keyed on the
+ * unsigned form, so a signed id looked up as-is simply misses, with no
+ * error to notice. Both are tried rather than assuming which arrived.
  */
-export function resolveCoverForAppId(appId: number): string | null {
+export function coverCandidates(appId: number): string[] {
   const cached = cache.get(appId);
   if (cached !== undefined) return cached;
 
-  const candidates =
-    appId < 0 ? [appId >>> 0, appId] : [appId, appId | 0];
+  const store = appStore();
+  const urls: string[] = [];
+  let sawOverview = false;
 
-  let found: string | null = null;
-  for (const candidate of candidates) {
-    const overview = bridge.getAppOverview(candidate);
-    if (!overview) continue;
-    for (const getter of GETTERS) {
-      found = tryGetter(overview, getter);
-      if (found) break;
+  if (store?.GetAppOverviewByAppID) {
+    // Unsigned first — that is the form Steam keys on. De-duplicated
+    // because the two coincide for any id below 2^31, and asking Steam
+    // the same question twice is pure waste on a 42-tile page.
+    const forms = [...new Set([appId >>> 0, appId | 0])];
+    for (const form of forms) {
+      let overview: unknown;
+      try {
+        overview = store.GetAppOverviewByAppID.call(store, form);
+      } catch {
+        continue;
+      }
+      if (!overview) continue;
+      sawOverview = true;
+      for (const name of GETTERS) {
+        const fn = store[name];
+        if (typeof fn !== "function") continue;
+        try {
+          // Called *with the receiver*. These are prototype methods that
+          // reach through `this` (`GetCustomVerticalCapsuleURLs` calls
+          // `this.GetCustomImageURLs` internally), so invoking a
+          // detached reference throws `Cannot read properties of
+          // undefined` — which, swallowed by the catch below, is
+          // indistinguishable from "this game has no artwork". That is
+          // precisely how this page shipped a build with no covers.
+          const raw = (fn as (this: AppStore, o: unknown) => unknown).call(
+            store,
+            overview,
+          );
+          for (const url of asUrls(raw)) {
+            if (!urls.includes(url)) urls.push(url);
+          }
+        } catch {
+          // A getter Steam has renamed costs its candidates, not the page.
+        }
+      }
+      if (urls.length > 0) break;
     }
-    if (found) break;
   }
 
-  cache.set(appId, found);
-  return found;
+  // Only memoise a negative answer once Steam has actually admitted to
+  // knowing the app. The page can mount before the shortcut map is
+  // populated, and caching "no artwork" during that window would blank
+  // every cover for the rest of the session with no way back — the
+  // cache would be hiding the very state it should be waiting out.
+  if (urls.length > 0 || sawOverview) cache.set(appId, urls);
+  return urls;
 }
 
 /**
- * Cover for a game: whatever the backend supplied, else Steam's.
- *
- * Returns `null` when there is nothing to show, which the tile renders
- * as a typographic placeholder rather than a broken image box.
+ * Cover candidates for a game: whatever the backend supplied first,
+ * then Steam's. Empty when there is nothing to show, which the tile
+ * renders as a typographic placeholder rather than a broken image box.
  */
-export function resolveCover(game: Game): string | null {
-  if (game.cover_image) return game.cover_image;
-  if (game.app_id == null) return null;
-  return resolveCoverForAppId(game.app_id);
+export function resolveCovers(game: Game): string[] {
+  const fromBackend = game.cover_image ? [game.cover_image] : [];
+  if (game.app_id == null) return fromBackend;
+  return [...fromBackend, ...coverCandidates(game.app_id)];
 }
 
 /** Drop the memo — used when a sync may have rewritten artwork. */

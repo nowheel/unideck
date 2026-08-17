@@ -120,10 +120,10 @@ export const FilterRail: FC<Props> = ({
         backgroundImage:
           "radial-gradient(ellipse 620px 200px at 12% 0%, rgba(249,177,48,0.10), transparent 70%)",
         borderBottom: `1px solid ${C.border}`,
-        padding: "14px 24px 12px",
+        padding: "9px 16px 9px",
         display: "flex",
         flexDirection: "column",
-        gap: 12,
+        gap: 7,
         flexShrink: 0,
       }}
     >
@@ -132,7 +132,7 @@ export const FilterRail: FC<Props> = ({
         style={{
           display: "flex",
           alignItems: "center",
-          gap: 16,
+          gap: 12,
           flexWrap: "wrap",
         }}
       >
@@ -194,7 +194,7 @@ export const FilterRail: FC<Props> = ({
           stick should do at a row boundary. */}
       <Focusable
         flow-children="row"
-        style={{ display: "flex", gap: 8, flexWrap: "wrap" }}
+        style={{ display: "flex", gap: 6, flexWrap: "wrap" }}
       >
         {statuses.map((option) => (
           <Chip
@@ -209,7 +209,7 @@ export const FilterRail: FC<Props> = ({
 
       <Focusable
         flow-children="row"
-        style={{ display: "flex", gap: 8, flexWrap: "wrap" }}
+        style={{ display: "flex", gap: 6, flexWrap: "wrap" }}
       >
         {stores.map((option) => {
           const active = store === option.id;

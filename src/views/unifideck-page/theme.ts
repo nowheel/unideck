@@ -10,10 +10,10 @@
  *   - rackdroid keys every interactive state off `:hover`. Gaming Mode
  *     has no pointer, so each of those becomes a *focus* state here —
  *     the gamepad focus ring is the only cursor that exists.
- *   - rackdroid's sticky header uses `backdrop-filter: blur(14px)`.
- *     A blur recompositing over a scrolling wall of cover art is the
- *     most expensive thing this page could ask of the Deck's APU, so
- *     the header is opaque instead.
+ *   - rackdroid blurs freely; here the blur is rationed. It buys a lot
+ *     of the site's character, but it also recomposites its backdrop
+ *     every frame the content behind it moves, so it is confined to the
+ *     two thin bars and the tile badges. See `glass()` below.
  *   - the site's display face (Geomini) is not bundled: it is a custom
  *     webfont we have no licence to redistribute inside a plugin. The
  *     identity survives without it, because what actually carries the
@@ -167,9 +167,9 @@ export function chipStyle(
 ): CSSProperties {
   return {
     fontFamily: MONO,
-    fontSize: 12,
-    letterSpacing: "0.04em",
-    padding: "7px 14px",
+    fontSize: 11,
+    letterSpacing: "0.03em",
+    padding: "4px 10px",
     borderRadius: 999,
     whiteSpace: "nowrap",
     cursor: "pointer",

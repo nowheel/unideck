@@ -26,8 +26,8 @@ interface Props {
 
 const cell: CSSProperties = {
   fontFamily: MONO,
-  fontSize: 11,
-  letterSpacing: "0.08em",
+  fontSize: 10,
+  letterSpacing: "0.07em",
   textTransform: "uppercase",
   whiteSpace: "nowrap",
 };
@@ -50,9 +50,9 @@ export const PageBar: FC<Props> = ({
       flexShrink: 0,
       display: "flex",
       alignItems: "center",
-      gap: 20,
-      padding: "0 24px",
-      height: 34,
+      gap: 14,
+      padding: "0 16px",
+      height: 26,
       color: C.textFaint,
       borderTop: `1px solid ${C.borderStrong}`,
       ...glass(GLASS_FOOTER, 14),

@@ -26,7 +26,7 @@ import { Focusable } from "@decky/ui";
 import { StoreIcon } from "../../components/shared/StoreIcon";
 import { C, MONO, badgeStyle, storeColor } from "./theme";
 import { formatPlaytime, formatSize } from "./catalogue";
-import { resolveCover } from "./cover";
+import { resolveCovers } from "./cover";
 import type { Game } from "../../types/api";
 
 interface Props {
@@ -56,12 +56,17 @@ const GameTileInner: FC<Props> = ({
   installedLabel,
 }) => {
   const [focused, setFocused] = useState(false);
-  const [coverFailed, setCoverFailed] = useState(false);
+  // Index into `covers`. Steam hands back several candidate URLs and
+  // only one of them is real for any given app, so a load error means
+  // "try the next", not "give up" — advancing here is what turns the
+  // candidate list into a working cover.
+  const [attempt, setAttempt] = useState(0);
 
   // Resolved once per mount: the lookup walks Steam's app store, which
   // is cheap but not free, and the answer cannot change while the tile
   // is on screen.
-  const cover = useMemo(() => resolveCover(game), [game]);
+  const covers = useMemo(() => resolveCovers(game), [game]);
+  const cover = covers[attempt];
 
   const accent = storeColor(game.store);
   const meta = [formatPlaytime(played), formatSize(game.size_bytes)]
@@ -96,13 +101,17 @@ const GameTileInner: FC<Props> = ({
       }}
     >
       <div style={{ position: "relative" }}>
-        {cover && !coverFailed ? (
+        {cover ? (
           <img
+            // Keyed by URL so React swaps the element rather than
+            // reusing one whose `onError` has already fired — without
+            // it the next candidate never gets a load attempt.
+            key={cover}
             src={cover}
             alt=""
             loading="lazy"
             decoding="async"
-            onError={() => setCoverFailed(true)}
+            onError={() => setAttempt((n) => n + 1)}
             style={COVER}
           />
         ) : (

@@ -14,8 +14,14 @@
  *
  * `PAGE_SIZE` is the one number that matters here. It bounds both the
  * mounted tile count and, with lazy covers, the decoded-bitmap
- * high-water mark. Six rows of seven is roughly two screenfuls at the
- * Deck's 1280×800, so a page is a short scroll rather than a jump.
+ * high-water mark.
+ *
+ * The sizes below are set for the real surface, which is smaller than
+ * the panel: Gaming Mode renders at `devicePixelRatio` 1.5, so a
+ * 1280×800 screen is an **854×534 CSS viewport**. Measured on-device,
+ * a 148px minimum yielded only five columns and left tiles looking
+ * oversized; 112px gives six or seven, and PAGE_SIZE is then about
+ * three screenfuls of scrolling per page.
  */
 import { FC, memo } from "react";
 import { Focusable } from "@decky/ui";
@@ -28,7 +34,7 @@ import type { Game } from "../../types/api";
 export const PAGE_SIZE = 42;
 
 /** Minimum tile width; the grid fills the row with whatever fits. */
-const TILE_MIN = 148;
+const TILE_MIN = 112;
 
 interface Props {
   /** The current page's slice, already filtered and sorted. */
@@ -58,7 +64,7 @@ const CatalogueGridInner: FC<Props> = ({
           alignItems: "center",
           justifyContent: "center",
           gap: 10,
-          padding: "80px 24px",
+          padding: "60px 24px",
           textAlign: "center",
         }}
       >
@@ -86,8 +92,8 @@ const CatalogueGridInner: FC<Props> = ({
       style={{
         display: "grid",
         gridTemplateColumns: `repeat(auto-fill, minmax(${TILE_MIN}px, 1fr))`,
-        gap: 14,
-        padding: "16px 24px 28px",
+        gap: 10,
+        padding: "12px 16px 20px",
         alignItems: "start",
       }}
     >

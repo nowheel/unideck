@@ -73,6 +73,19 @@ const STORES: readonly StoreId[] = [
 /** Milliseconds of quiet before a search term is applied. */
 const SEARCH_DEBOUNCE_MS = 220;
 
+/**
+ * Insets for Steam's own persistent chrome.
+ *
+ * Gaming Mode hands a route the whole window and then draws its status
+ * bar and its button legend on top of it, so a page that starts at
+ * `top: 0` has its first row hidden under the clock. Measured on-device
+ * over CDP: the CSS viewport is 854×534 (the panel is 1280×800 at
+ * `devicePixelRatio` 1.5), with roughly 38px of bar above and 35px of
+ * legend below.
+ */
+const STEAM_TOP_INSET = 40;
+const STEAM_BOTTOM_INSET = 36;
+
 const UnifideckPageInner: FC = () => {
   const { t } = useTranslation();
 
@@ -379,6 +392,9 @@ const Shell: FC<{
       height: "100%",
       display: "flex",
       flexDirection: "column",
+      paddingTop: STEAM_TOP_INSET,
+      paddingBottom: STEAM_BOTTOM_INSET,
+      boxSizing: "border-box",
       background: C.bg,
       color: C.text,
     }}
