@@ -468,7 +468,7 @@ const UnifideckPageInner: FC = () => {
               emptyTitle={t("unifideckPage.emptyTitle", "No games match")}
               emptyHint={t(
                 "unifideckPage.emptyHint",
-                "Try a different store or clear the search. If a store looks empty, connect it and run a library sync from the Quick Access menu.",
+                "Try a different store, or clear the search. If a store looks empty, connect it in the Quick Access menu and press Sync above.",
               )}
             />
           </div>

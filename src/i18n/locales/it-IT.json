@@ -1020,7 +1020,7 @@
     "hintSort": "Y ordina",
     "retry": "Riprova",
     "emptyTitle": "Nessun gioco corrisponde",
-    "emptyHint": "Prova un altro store o svuota la ricerca. Se uno store sembra vuoto, collegalo ed esegui una sincronizzazione della libreria dal menu Accesso rapido.",
+    "emptyHint": "Prova un altro store o svuota la ricerca. Se uno store sembra vuoto, collegalo dal menu Accesso rapido e premi Sincronizza qui sopra.",
     "search": "Cerca",
     "deckVerified": "Verificato",
     "deckPlayable": "Giocabile",
