@@ -1005,5 +1005,22 @@
     "title": "COLLEZIONI DI STEAM",
     "enabled": "Collezioni abilitate",
     "disabled": "Collezioni disabilitate"
+  },
+  "unifideckPage": {
+    "notInstalled": "Non installati",
+    "installedBadge": "Inst",
+    "sortBy": "Ordine",
+    "sortTitle": "Titolo",
+    "sortRecent": "Giocati di recente",
+    "sortPlaytime": "Tempo di gioco",
+    "sortSize": "Dimensione",
+    "sortStore": "Store",
+    "page": "Pagina",
+    "hintPage": "L1/R1 pagina",
+    "hintSort": "Y ordina",
+    "retry": "Riprova",
+    "emptyTitle": "Nessun gioco corrisponde",
+    "emptyHint": "Prova un altro store o svuota la ricerca. Se uno store sembra vuoto, collegalo ed esegui una sincronizzazione della libreria dal menu Accesso rapido.",
+    "search": "Cerca"
   }
 }
