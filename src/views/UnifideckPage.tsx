@@ -48,6 +48,7 @@ import { FilterRail, type StoreOption } from "./unifideck-page/FilterRail";
 import { PageBar } from "./unifideck-page/PageBar";
 import { C, MONO } from "./unifideck-page/theme";
 import { clearCoverCache } from "./unifideck-page/cover";
+import { toSteamAppId } from "./unifideck-page/appid";
 import {
   SORT_KEYS,
   countByStore,
@@ -198,10 +199,16 @@ const UnifideckPageInner: FC = () => {
    * Hand off to Steam's own app page, which `AppDetailsPatch` has
    * already decorated with the Unifideck play section.
    *
-   * `app_id` is the *shortcut* AppID. Titles Unifideck knows about but
-   * has not yet mapped to a shortcut have none — there is no page to
-   * route to, so the tile is inert rather than throwing the user at a
-   * broken route.
+   * `app_id` is the *shortcut* AppID, and the backend hands it over in
+   * its signed reading. Steam's route wants the unsigned one, and does
+   * not complain when it gets the other: `/library/app/-310337468`
+   * matches nothing and drops the user on the library home page, so
+   * picking a game appeared to do something almost right. Verified
+   * against the live client — the unsigned form lands correctly.
+   *
+   * Titles Unifideck knows about but has not yet mapped to a shortcut
+   * have no AppID at all; the tile is inert rather than throwing the
+   * user at a broken route.
    */
   const onSelect = useCallback((game: Game): void => {
     if (game.app_id == null) {
@@ -212,7 +219,7 @@ const UnifideckPageInner: FC = () => {
       );
       return;
     }
-    Navigation.Navigate(`/library/app/${game.app_id}`);
+    Navigation.Navigate(`/library/app/${toSteamAppId(game.app_id)}`);
   }, []);
 
   // Bumpers page, Y cycles the sort. Bound on the page root so they

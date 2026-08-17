@@ -36,6 +36,7 @@
  * *do* work for real Steam entries — the tile walks the list on error
  * rather than trusting any single one.
  */
+import { appIdForms } from "./appid";
 import type { Game } from "../../types/api";
 
 /** The slice of `window.appStore` this module needs. */
@@ -94,11 +95,7 @@ export function coverCandidates(appId: number): string[] {
   let sawOverview = false;
 
   if (store?.GetAppOverviewByAppID) {
-    // Unsigned first — that is the form Steam keys on. De-duplicated
-    // because the two coincide for any id below 2^31, and asking Steam
-    // the same question twice is pure waste on a 42-tile page.
-    const forms = [...new Set([appId >>> 0, appId | 0])];
-    for (const form of forms) {
+    for (const form of appIdForms(appId)) {
       let overview: unknown;
       try {
         overview = store.GetAppOverviewByAppID.call(store, form);
