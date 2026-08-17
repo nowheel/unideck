@@ -50,7 +50,8 @@ import { C, MONO } from "./unifideck-page/theme";
 import { clearCoverCache } from "./unifideck-page/cover";
 import { toSteamAppId } from "./unifideck-page/appid";
 import {
-  SORT_KEYS,
+  availableSorts,
+  compatFor,
   countByStore,
   indexPlaytimes,
   selectCatalogue,
@@ -188,12 +189,56 @@ const UnifideckPageInner: FC = () => {
     [pages],
   );
 
+  // Only the sorts that mean something with the data on hand — see
+  // `availableSorts`. Recomputed as playtime arrives, so the cycle
+  // grows on its own after the first session.
+  const sorts = useMemo(() => availableSorts(playtimes), [playtimes]);
+
   const cycleSort = useCallback(() => {
     setSort((current) => {
-      const at = SORT_KEYS.indexOf(current);
-      return SORT_KEYS[(at + 1) % SORT_KEYS.length];
+      const at = sorts.indexOf(current);
+      // A sort that has just left the list (data went away) restarts
+      // the cycle rather than wedging on an index of -1.
+      return sorts[(at + 1) % sorts.length] ?? sorts[0];
     });
-  }, []);
+  }, [sorts]);
+
+  /**
+   * Deck-compatibility label for the tile meta line.
+   *
+   * Verified/playable is Valve's own verdict and outranks ProtonDB's
+   * tier, which is the community's. Unknown returns `null` so the tile
+   * shows nothing rather than a confident-looking "unknown".
+   */
+  const deckLabelFor = useCallback(
+    (game: Game) => {
+      const compat = compatFor(game);
+      if (!compat) return null;
+      switch (compat.deckVerified) {
+        case "verified":
+          return { text: t("unifideckPage.deckVerified", "Verified"), tone: C.teal };
+        case "playable":
+          return { text: t("unifideckPage.deckPlayable", "Playable"), tone: C.amberSoft };
+        case "unsupported":
+          return { text: t("unifideckPage.deckUnsupported", "Unsupported"), tone: C.red };
+        default:
+          break;
+      }
+      switch (compat.tier) {
+        case "native":
+          return { text: t("unifideckPage.tierNative", "Native"), tone: C.teal };
+        case "platinum":
+          return { text: t("unifideckPage.tierPlatinum", "Platinum"), tone: C.amberSoft };
+        case "gold":
+          return { text: t("unifideckPage.tierGold", "Gold"), tone: C.amber };
+        case "borked":
+          return { text: t("unifideckPage.tierBorked", "Borked"), tone: C.red };
+        default:
+          return null;
+      }
+    },
+    [t],
+  );
 
   /**
    * Hand off to Steam's own app page, which `AppDetailsPatch` has
@@ -362,7 +407,8 @@ const UnifideckPageInner: FC = () => {
               games={pageGames}
               playtimes={playtimes}
               onSelect={onSelect}
-              installedLabel={t("unifideckPage.installedBadge", "Inst")}
+                  installedLabel={t("unifideckPage.installedBadge", "Inst")}
+              deckLabelFor={deckLabelFor}
               emptyTitle={t("unifideckPage.emptyTitle", "No games match")}
               emptyHint={t(
                 "unifideckPage.emptyHint",

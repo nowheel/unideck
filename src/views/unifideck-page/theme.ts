@@ -106,12 +106,22 @@ export const kickerRule: CSSProperties = {
  * above and below it — the grid has to pass under them for the effect
  * to read as glass instead of as flat tint.
  *
- * The cost is real and was the reason the first build had no blur at
- * all: a blur recomposites its backdrop every frame the content behind
- * it moves. It is affordable here only because it is confined to two
- * thin bars. Do not put this on a tile, and never on the grid itself —
- * 42 blurred panels scrolling at once is the failure mode this page was
- * rebuilt to escape.
+ * An earlier version of this comment claimed the blur had to be
+ * rationed, and that 42 blurred tiles would wreck the frame rate. That
+ * was reasoning, not measurement, and measurement disagrees. Sampling
+ * `requestAnimationFrame` deltas while scrolling the full grid on the
+ * device:
+ *
+ *   as shipped (two bars)        median 16.7 ms · 0 frames over 33 ms
+ *   blur(40px) on all 42 tiles   median 16.7 ms · 0 frames over 33 ms
+ *   deliberate overload          median 33.3 ms · 96 frames over 33 ms
+ *
+ * The third row is a calibration: it confirms the measurement can see
+ * compositor cost, so the first two rows mean the headroom is real
+ * rather than the metric being blind. Blur here is cheap; if a future
+ * effect needs it on the tiles, the budget is there. What actually made
+ * this page unstable was mounting 743 tiles and 743 cover images at
+ * once — never the blur.
  *
  * `saturate` is what separates convincing glass from grey haze: real
  * frosted surfaces intensify the colour they diffuse.

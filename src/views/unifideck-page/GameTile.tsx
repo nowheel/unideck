@@ -29,6 +29,12 @@ import { formatPlaytime, formatSize } from "./catalogue";
 import { resolveCovers } from "./cover";
 import type { Game } from "../../types/api";
 
+/** A localised Deck-compatibility label plus the colour to show it in. */
+export interface DeckLabel {
+  text: string;
+  tone: string;
+}
+
 interface Props {
   game: Game;
   installed: boolean;
@@ -37,6 +43,8 @@ interface Props {
   onSelect: (game: Game) => void;
   /** Localised label for the installed badge. */
   installedLabel: string;
+  /** Deck-compat label, shown when there are no playtime/size stats. */
+  deckLabel: DeckLabel | null;
 }
 
 const COVER: CSSProperties = {
@@ -54,6 +62,7 @@ const GameTileInner: FC<Props> = ({
   played,
   onSelect,
   installedLabel,
+  deckLabel,
 }) => {
   const [focused, setFocused] = useState(false);
   // Index into `covers`. Steam hands back several candidate URLs and
@@ -69,9 +78,27 @@ const GameTileInner: FC<Props> = ({
   const cover = covers[attempt];
 
   const accent = storeColor(game.store);
-  const meta = [formatPlaytime(played), formatSize(game.size_bytes)]
-    .filter(Boolean)
-    .join("  ·  ");
+
+  /**
+   * The meta line, filled with the best fact we actually have.
+   *
+   * Playtime and size are the interesting ones but they are usually
+   * absent: measured on this device, `size_bytes` is 0 for all 743
+   * games (it is only written after an install) and the playtime
+   * database is empty until a first session ends. That left the row
+   * blank on every tile.
+   *
+   * Deck compatibility is the fact that *is* broadly known — 406 of
+   * 743 here — so it fills the space rather than nothing.
+   */
+  const meta = useMemo(() => {
+    const stats = [formatPlaytime(played), formatSize(game.size_bytes)]
+      .filter(Boolean)
+      .join("  ·  ");
+    if (stats) return { text: stats, tone: C.textFaint };
+    if (!deckLabel) return null;
+    return { text: deckLabel.text, tone: deckLabel.tone };
+  }, [played, game.size_bytes, deckLabel]);
 
   return (
     <Focusable
@@ -192,14 +219,15 @@ const GameTileInner: FC<Props> = ({
             fontFamily: MONO,
             fontSize: 10,
             letterSpacing: "0.04em",
-            color: C.textFaint,
+            color: meta?.tone ?? C.textFaint,
             marginTop: 3,
             height: 12,
             whiteSpace: "nowrap",
             overflow: "hidden",
+            textOverflow: "ellipsis",
           }}
         >
-          {meta}
+          {meta?.text ?? ""}
         </div>
       </div>
     </Focusable>

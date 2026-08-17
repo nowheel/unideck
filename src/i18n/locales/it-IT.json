@@ -1021,6 +1021,13 @@
     "retry": "Riprova",
     "emptyTitle": "Nessun gioco corrisponde",
     "emptyHint": "Prova un altro store o svuota la ricerca. Se uno store sembra vuoto, collegalo ed esegui una sincronizzazione della libreria dal menu Accesso rapido.",
-    "search": "Cerca"
+    "search": "Cerca",
+    "deckVerified": "Verificato",
+    "deckPlayable": "Giocabile",
+    "deckUnsupported": "Non supportato",
+    "tierNative": "Nativo",
+    "tierPlatinum": "Platino",
+    "tierGold": "Oro",
+    "tierBorked": "Rotto"
   }
 }

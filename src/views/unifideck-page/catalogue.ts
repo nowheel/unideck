@@ -15,6 +15,7 @@ import {
   getCachedCompatByTitle,
   meetsGreatOnDeckCriteria,
 } from "../../lib/protondb-cache";
+import type { GameCompatInfo } from "../../lib/protondb-cache";
 import type { Game, StoreId } from "../../types/api";
 import type { PlaytimeEntry } from "../../types/playtime";
 
@@ -58,9 +59,37 @@ export interface CatalogueQuery {
  */
 export type PlaytimeIndex = Map<string, PlaytimeEntry>;
 
+/**
+ * A game's store-native id.
+ *
+ * The backend `Game` dataclass has no `id` field at all — it carries
+ * `store_game_id`. The frontend `Game` interface predates the
+ * unified-types refactor and still declares `id`, which only exists on
+ * rows that have been through `adaptGame` (see `hooks/useGameInfo.ts`,
+ * where the same `store_game_id ?? id` rule is applied and the same
+ * trap is documented). This page reads raw RPC rows, so `game.id` is
+ * `undefined` for every one of them.
+ *
+ * Reading it unguarded is not harmless: it silently produced 42 React
+ * children keyed `undefined`, and every playtime lookup missing.
+ */
+export function gameId(game: Game): string {
+  return game.store_game_id ?? game.id ?? "";
+}
+
+/**
+ * Stable React key.
+ *
+ * Store-qualified because two storefronts can and do use the same
+ * native id for different titles.
+ */
+export function gameKey(game: Game): string {
+  return `${game.store}:${gameId(game)}`;
+}
+
 /** Key under which a game's playtime is indexed. */
-export function playtimeKey(store: string, gameId: string): string {
-  return `${store}:${gameId}`;
+export function playtimeKey(store: string, id: string): string {
+  return `${store}:${id}`;
 }
 
 /** Index playtime rows for O(1) lookup during sort/render. */
@@ -76,18 +105,11 @@ export function indexPlaytimes(entries: PlaytimeEntry[]): PlaytimeIndex {
 /**
  * The playtime row for a game, if we have one.
  *
- * The backend keys these rows on `store_game_id` (it joins `games` x
- * `game_stats` on the store-native id), while `Game` carries that value
- * under both `id` and `store_game_id` depending on which path built the
- * row. Trying both is cheaper than guaranteeing which one arrived.
+ * The backend keys these rows on the store-native id (it joins `games`
+ * x `game_stats` on it), which is exactly what {@link gameId} resolves.
  */
 function entryFor(game: Game, index: PlaytimeIndex): PlaytimeEntry | undefined {
-  return (
-    index.get(playtimeKey(game.store, game.id)) ??
-    (game.store_game_id
-      ? index.get(playtimeKey(game.store, game.store_game_id))
-      : undefined)
-  );
+  return index.get(playtimeKey(game.store, gameId(game)));
 }
 
 /**
@@ -125,21 +147,40 @@ export function isInstalled(game: Game): boolean {
 }
 
 /**
- * Whether a game clears the Great-on-Deck bar.
+ * A game's Deck-compatibility record, or `null` when unknown.
  *
  * Prefers the shortcut-keyed facet record, which is authoritative;
  * falls back to the title-keyed compat cache for titles that sync has
  * not yet mapped to a shortcut AppID.
  */
-export function isGreatOnDeck(game: Game): boolean {
+export function compatFor(game: Game): GameCompatInfo | null {
   if (game.app_id != null) {
     const compat = getCompatByShortcutAppId(game.app_id);
-    if (compat) return meetsGreatOnDeckCriteria(compat);
+    if (compat) return compat;
   }
-  if (game.title) {
-    return meetsGreatOnDeckCriteria(getCachedCompatByTitle(game.title));
-  }
-  return false;
+  return game.title ? getCachedCompatByTitle(game.title) : null;
+}
+
+/** Whether a game clears the Great-on-Deck bar. */
+export function isGreatOnDeck(game: Game): boolean {
+  return meetsGreatOnDeckCriteria(compatFor(game));
+}
+
+/**
+ * The sorts worth offering, given the data actually present.
+ *
+ * Playtime and recency are dropped when nothing has been played:
+ * sorting 743 identical zeros is a no-op that silently yields
+ * alphabetical order, so leaving them in the cycle offers two settings
+ * that appear to do nothing. Measured on this device the playtime
+ * database is empty until a first session ends — so both reappear on
+ * their own the moment they start meaning something.
+ */
+export function availableSorts(playtimes: PlaytimeIndex): SortKey[] {
+  const hasPlaytime = playtimes.size > 0;
+  return SORT_KEYS.filter(
+    (key) => hasPlaytime || (key !== "playtime" && key !== "recent"),
+  );
 }
 
 /** Does this game pass the status axis? */

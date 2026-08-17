@@ -25,7 +25,10 @@ vi.mock("../../lib/protondb-cache", () => ({
 }));
 
 import {
+  availableSorts,
   countByStore,
+  gameId,
+  gameKey,
   formatPlaytime,
   formatSize,
   indexPlaytimes,
@@ -287,5 +290,48 @@ describe("formatters", () => {
     [42 * 1024 ** 3, "42 GB"],
   ])("formats %s bytes as %s", (bytes, expected) => {
     expect(formatSize(bytes as number | undefined)).toBe(expected);
+  });
+});
+
+describe("game identity", () => {
+  it("reads store_game_id, which is what the wire actually carries", () => {
+    // Regression: the backend `Game` dataclass has no `id` field, so
+    // keying tiles on `game.id` produced 42 children keyed `undefined`
+    // and made every playtime lookup miss.
+    const g = { store: "epic", store_game_id: "native-77" } as Game;
+    expect(gameId(g)).toBe("native-77");
+    expect(gameKey(g)).toBe("epic:native-77");
+  });
+
+  it("still accepts an adapted row carrying id", () => {
+    const g = { store: "gog", id: "adapted-3" } as Game;
+    expect(gameId(g)).toBe("adapted-3");
+  });
+
+  it("qualifies the key by store so two storefronts cannot collide", () => {
+    const a = { store: "epic", store_game_id: "same" } as Game;
+    const b = { store: "gog", store_game_id: "same" } as Game;
+    expect(gameKey(a)).not.toBe(gameKey(b));
+  });
+
+  it("matches playtime rows through the same rule", () => {
+    const index = indexPlaytimes([
+      playtime({ game_id: "native-77", total_seconds: 42 }),
+    ]);
+    const g = { store: "epic", store_game_id: "native-77" } as Game;
+    expect(playedSecs(g, index)).toBe(42);
+  });
+});
+
+describe("availableSorts", () => {
+  it("hides playtime and recency while nothing has been played", () => {
+    // Sorting 743 identical zeros silently yields alphabetical order,
+    // so offering these would be offering two settings that do nothing.
+    expect(availableSorts(new Map())).toEqual(["title", "size", "store"]);
+  });
+
+  it("offers every sort once playtime exists", () => {
+    const index = indexPlaytimes([playtime({ game_id: "a" })]);
+    expect(availableSorts(index)).toEqual([...SORT_KEYS]);
   });
 });

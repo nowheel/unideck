@@ -25,9 +25,14 @@
  */
 import { FC, memo } from "react";
 import { Focusable } from "@decky/ui";
-import { GameTile } from "./GameTile";
+import { GameTile, type DeckLabel } from "./GameTile";
 import { C, MONO } from "./theme";
-import { playedSecs, isInstalled, type PlaytimeIndex } from "./catalogue";
+import {
+  gameKey,
+  isInstalled,
+  playedSecs,
+  type PlaytimeIndex,
+} from "./catalogue";
 import type { Game } from "../../types/api";
 
 /** Tiles rendered at once. See the note on paging above. */
@@ -42,6 +47,8 @@ interface Props {
   playtimes: PlaytimeIndex;
   onSelect: (game: Game) => void;
   installedLabel: string;
+  /** Resolves a game's Deck-compat label; localised by the page. */
+  deckLabelFor: (game: Game) => DeckLabel | null;
   /** Shown when the filters exclude everything. */
   emptyTitle: string;
   emptyHint: string;
@@ -52,6 +59,7 @@ const CatalogueGridInner: FC<Props> = ({
   playtimes,
   onSelect,
   installedLabel,
+  deckLabelFor,
   emptyTitle,
   emptyHint,
 }) => {
@@ -99,12 +107,14 @@ const CatalogueGridInner: FC<Props> = ({
     >
       {games.map((game) => (
         <GameTile
-          key={game.id}
+          // `game.id` does not exist on raw RPC rows — see `gameId`.
+          key={gameKey(game)}
           game={game}
           installed={isInstalled(game)}
           played={playedSecs(game, playtimes)}
           onSelect={onSelect}
           installedLabel={installedLabel}
+          deckLabel={deckLabelFor(game)}
         />
       ))}
     </Focusable>
