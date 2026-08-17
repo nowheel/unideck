@@ -12,7 +12,7 @@
  * gradient rather than another composited layer.
  */
 import { CSSProperties, FC } from "react";
-import { C, MONO } from "./theme";
+import { C, GLASS_FOOTER, MONO, glass } from "./theme";
 
 interface Props {
   sortLabel: string;
@@ -42,6 +42,11 @@ export const PageBar: FC<Props> = ({
 }) => (
   <div
     style={{
+      // Sticky to the foot of the scroll container: the last row of
+      // tiles passes beneath it instead of ending above it.
+      position: "sticky",
+      bottom: 0,
+      zIndex: 3,
       flexShrink: 0,
       display: "flex",
       alignItems: "center",
@@ -50,10 +55,11 @@ export const PageBar: FC<Props> = ({
       height: 34,
       color: C.textFaint,
       borderTop: `1px solid ${C.borderStrong}`,
-      background: C.rail,
-      // rackdroid's `.rail`: a row of recessed rack holes.
+      ...glass(GLASS_FOOTER, 14),
+      // rackdroid's `.rail`: a row of recessed rack holes, kept over
+      // the blur so the bar still reads as a machined strip.
       backgroundImage:
-        "radial-gradient(circle, rgba(0,0,0,0.5) 1.4px, transparent 1.6px)",
+        "radial-gradient(circle, rgba(0,0,0,0.45) 1.4px, transparent 1.6px)",
       backgroundSize: "22px 22px",
       backgroundPosition: "11px center",
     }}

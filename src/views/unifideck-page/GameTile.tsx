@@ -21,11 +21,12 @@
  * The component is memoised: paging re-renders the grid, and without
  * this every tile would re-render on each keystroke of the search box.
  */
-import { CSSProperties, FC, memo, useState } from "react";
+import { CSSProperties, FC, memo, useMemo, useState } from "react";
 import { Focusable } from "@decky/ui";
 import { StoreIcon } from "../../components/shared/StoreIcon";
 import { C, MONO, badgeStyle, storeColor } from "./theme";
 import { formatPlaytime, formatSize } from "./catalogue";
+import { resolveCover } from "./cover";
 import type { Game } from "../../types/api";
 
 interface Props {
@@ -56,6 +57,11 @@ const GameTileInner: FC<Props> = ({
 }) => {
   const [focused, setFocused] = useState(false);
   const [coverFailed, setCoverFailed] = useState(false);
+
+  // Resolved once per mount: the lookup walks Steam's app store, which
+  // is cheap but not free, and the answer cannot change while the tile
+  // is on screen.
+  const cover = useMemo(() => resolveCover(game), [game]);
 
   const accent = storeColor(game.store);
   const meta = [formatPlaytime(played), formatSize(game.size_bytes)]
@@ -90,9 +96,9 @@ const GameTileInner: FC<Props> = ({
       }}
     >
       <div style={{ position: "relative" }}>
-        {game.cover_image && !coverFailed ? (
+        {cover && !coverFailed ? (
           <img
-            src={game.cover_image}
+            src={cover}
             alt=""
             loading="lazy"
             decoding="async"

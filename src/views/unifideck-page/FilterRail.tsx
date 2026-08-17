@@ -21,7 +21,16 @@
 import { FC, ReactNode, useState } from "react";
 import { Focusable, TextField } from "@decky/ui";
 import { StoreIcon } from "../../components/shared/StoreIcon";
-import { C, MONO, chipStyle, kickerRule, kickerText, storeColor } from "./theme";
+import {
+  C,
+  GLASS_HEADER,
+  MONO,
+  chipStyle,
+  glass,
+  kickerRule,
+  kickerText,
+  storeColor,
+} from "./theme";
 import type { StatusFilter, StoreFilter } from "./catalogue";
 import type { StoreId } from "../../types/api";
 
@@ -100,7 +109,16 @@ export const FilterRail: FC<Props> = ({
   return (
     <div
       style={{
-        background: C.bg1,
+        // Sticky inside the scroll container, so the grid slides under
+        // the glass rather than stopping at its edge.
+        position: "sticky",
+        top: 0,
+        zIndex: 3,
+        ...glass(GLASS_HEADER),
+        // rackdroid's `.cta-panel` warms its top-left corner with an
+        // amber wash; over a blur it reads as light caught in the pane.
+        backgroundImage:
+          "radial-gradient(ellipse 620px 200px at 12% 0%, rgba(249,177,48,0.10), transparent 70%)",
         borderBottom: `1px solid ${C.border}`,
         padding: "14px 24px 12px",
         display: "flex",

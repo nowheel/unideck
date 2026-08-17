@@ -97,7 +97,45 @@ export const kickerRule: CSSProperties = {
   flexShrink: 0,
 };
 
-/** rackdroid's `.mod-card-badge` — tiny, boxed, uppercase mono. */
+/**
+ * Frosted-glass surface.
+ *
+ * `backdrop-filter` only means anything when something is actually
+ * moving behind the element, so the surfaces that use this are laid out
+ * as sticky bars *inside* the scroll container rather than as flex rows
+ * above and below it — the grid has to pass under them for the effect
+ * to read as glass instead of as flat tint.
+ *
+ * The cost is real and was the reason the first build had no blur at
+ * all: a blur recomposites its backdrop every frame the content behind
+ * it moves. It is affordable here only because it is confined to two
+ * thin bars. Do not put this on a tile, and never on the grid itself —
+ * 42 blurred panels scrolling at once is the failure mode this page was
+ * rebuilt to escape.
+ *
+ * `saturate` is what separates convincing glass from grey haze: real
+ * frosted surfaces intensify the colour they diffuse.
+ */
+export function glass(tint: string, blurPx = 16): CSSProperties {
+  return {
+    background: tint,
+    backdropFilter: `blur(${blurPx}px) saturate(140%)`,
+    WebkitBackdropFilter: `blur(${blurPx}px) saturate(140%)`,
+  } as CSSProperties;
+}
+
+/** Translucent ground for the header bar. */
+export const GLASS_HEADER = "rgba(23,19,13,0.72)";
+/** Translucent ground for the footer bar; denser, it sits over tiles. */
+export const GLASS_FOOTER = "rgba(44,37,25,0.78)";
+
+/**
+ * rackdroid's `.mod-card-badge` — tiny, boxed, uppercase mono.
+ *
+ * Blurred as well, but over a *static* backdrop: the badge sits on its
+ * own cover image, which does not move relative to it, so this costs
+ * one composite at paint rather than one per scrolled frame.
+ */
 export function badgeStyle(color: string): CSSProperties {
   return {
     fontFamily: MONO,
@@ -108,10 +146,13 @@ export function badgeStyle(color: string): CSSProperties {
     padding: "2px 6px",
     borderRadius: 4,
     color,
-    background: "rgba(0,0,0,0.55)",
-    border: `1px solid ${color}40`,
+    background: "rgba(10,8,5,0.45)",
+    backdropFilter: "blur(6px) saturate(150%)",
+    WebkitBackdropFilter: "blur(6px) saturate(150%)",
+    border: `1px solid ${color}55`,
+    boxShadow: "0 2px 8px -2px rgba(0,0,0,0.6)",
     whiteSpace: "nowrap",
-  };
+  } as CSSProperties;
 }
 
 /**

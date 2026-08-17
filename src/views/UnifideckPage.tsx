@@ -47,6 +47,7 @@ import { CatalogueGrid, PAGE_SIZE } from "./unifideck-page/CatalogueGrid";
 import { FilterRail, type StoreOption } from "./unifideck-page/FilterRail";
 import { PageBar } from "./unifideck-page/PageBar";
 import { C, MONO } from "./unifideck-page/theme";
+import { clearCoverCache } from "./unifideck-page/cover";
 import {
   SORT_KEYS,
   countByStore,
@@ -108,7 +109,12 @@ const UnifideckPageInner: FC = () => {
   // appears without a Steam restart. `useRPCQuery` keeps the previous
   // `data` during a refetch, so the grid stays on screen throughout.
   useEffect(() => {
-    const onSync = (): void => void refetch();
+    const onSync = (): void => {
+      // A sync can write new artwork into Steam's grid store, so the
+      // memoised cover URLs are stale from here on.
+      clearCoverCache();
+      void refetch();
+    };
     window.addEventListener("unifideck-sync-completed", onSync);
     return () => window.removeEventListener("unifideck-sync-completed", onSync);
   }, [refetch]);
@@ -295,47 +301,68 @@ const UnifideckPageInner: FC = () => {
 
   return (
     <Shell onButtonDown={onButtonDown}>
-      <FilterRail
-        total={all.length}
-        shown={filtered.length}
-        stores={storeOptions}
-        statuses={statusOptions}
-        store={store}
-        status={status}
-        searchText={searchText}
-        onStore={setStore}
-        onStatus={setStatus}
-        onSearch={setSearchText}
-        searchLabel={t("unifideckPage.search", "Search")}
-        countLabel={`${filtered.length} / ${all.length}`}
-      />
+      {/* One scroll container holding rail, grid and bar. The two bars
+          are `position: sticky` within it, so the grid slides beneath
+          the glass — laying them out as siblings above and below the
+          scroller would leave nothing behind them to blur. The inner
+          column is `minHeight: 100%` so the footer still sits at the
+          bottom of the viewport when a page is only half full. */}
+      <div
+        ref={scrollRef}
+        style={{ flex: 1, minHeight: 0, overflowY: "auto" }}
+      >
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            minHeight: "100%",
+          }}
+        >
+          <FilterRail
+            total={all.length}
+            shown={filtered.length}
+            stores={storeOptions}
+            statuses={statusOptions}
+            store={store}
+            status={status}
+            searchText={searchText}
+            onStore={setStore}
+            onStatus={setStatus}
+            onSearch={setSearchText}
+            searchLabel={t("unifideckPage.search", "Search")}
+            countLabel={`${filtered.length} / ${all.length}`}
+          />
 
-      <div ref={scrollRef} style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
-        <CatalogueGrid
-          // Remount per page so focus re-enters at the first tile
-          // instead of trying to hold a position on tiles that no
-          // longer exist.
-          key={safePage}
-          games={pageGames}
-          playtimes={playtimes}
-          onSelect={onSelect}
-          installedLabel={t("unifideckPage.installedBadge", "Inst")}
-          emptyTitle={t("unifideckPage.emptyTitle", "No games match")}
-          emptyHint={t(
-            "unifideckPage.emptyHint",
-            "Try a different store or clear the search. If a store looks empty, connect it and run a library sync from the Quick Access menu.",
-          )}
-        />
+          <div style={{ flex: 1 }}>
+            <CatalogueGrid
+              // Remount per page so focus re-enters at the first tile
+              // instead of trying to hold a position on tiles that no
+              // longer exist.
+              key={safePage}
+              games={pageGames}
+              playtimes={playtimes}
+              onSelect={onSelect}
+              installedLabel={t("unifideckPage.installedBadge", "Inst")}
+              emptyTitle={t("unifideckPage.emptyTitle", "No games match")}
+              emptyHint={t(
+                "unifideckPage.emptyHint",
+                "Try a different store or clear the search. If a store looks empty, connect it and run a library sync from the Quick Access menu.",
+              )}
+            />
+          </div>
+
+          <PageBar
+            sortLabel={`${t("unifideckPage.sortBy", "Sort")}: ${
+              sortLabels[sort]
+            }`}
+            page={safePage + 1}
+            pages={pages}
+            pageLabel={t("unifideckPage.page", "Page")}
+            hintPage={t("unifideckPage.hintPage", "L1/R1 page")}
+            hintSort={t("unifideckPage.hintSort", "Y sort")}
+          />
+        </div>
       </div>
-
-      <PageBar
-        sortLabel={`${t("unifideckPage.sortBy", "Sort")}: ${sortLabels[sort]}`}
-        page={safePage + 1}
-        pages={pages}
-        pageLabel={t("unifideckPage.page", "Page")}
-        hintPage={t("unifideckPage.hintPage", "L1/R1 page")}
-        hintSort={t("unifideckPage.hintSort", "Y sort")}
-      />
     </Shell>
   );
 };
