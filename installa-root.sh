@@ -3,7 +3,7 @@
 # sola autenticazione. Non contiene credenziali.
 set -euo pipefail
 
-SRC="/tmp/claude-1000/-home-deck/1e449fb4-8ad3-4b78-aa7a-c256106a3d66/scratchpad/work/dist"
+SRC="${1:-/home/deck/Progetti/unifideck-mio/dist}"
 PLUGIN="/home/deck/.local/var/opt/decky-loader/plugins/Unifideck"
 DEST="$PLUGIN/dist"
 BACKUP="$PLUGIN/dist.backup-$(date +%Y%m%d-%H%M%S)"
