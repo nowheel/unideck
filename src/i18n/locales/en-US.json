@@ -388,7 +388,8 @@
     },
     "library": {
       "_comment": "Toasts emitted by SyncService when a per-store library sync fails. The retry button triggers a fire-and-forget refresh via the unifideck://refresh-library/<store> verb; the user doesn't wait for the result inline, the Library view picks it up through its SYNC_PROGRESS subscription.",
-      "syncStoreFailed": "Couldn't refresh {{store}} library ({{error}}). Your existing library stays visible."
+      "syncStoreFailed": "Couldn't refresh {{store}} library ({{error}}). Your existing library stays visible.",
+      "storeShrank": "{{store}}: {{lost}} games disappeared (was {{before}}). If that looks wrong, run a sync again before restarting Steam."
     }
   },
   "uninstallModal": {
@@ -1029,6 +1030,8 @@
     "tierPlatinum": "Platinum",
     "tierGold": "Gold",
     "tierBorked": "Borked",
-    "sync": "Sync"
+    "sync": "Sync",
+    "hintLetter": "L2/R2 letter",
+    "syncing": "Syncing"
   }
 }

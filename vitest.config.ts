@@ -16,5 +16,8 @@ export default defineConfig({
   },
   test: {
     include: ["src/**/*.test.{ts,tsx}"],
+    // jsdom here has no localStorage; see the file for why that made
+    // three suites fail for reasons unrelated to the code under test.
+    setupFiles: ["./src/test-support/setup.ts"],
   },
 });

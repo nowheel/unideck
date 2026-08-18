@@ -49,9 +49,16 @@ import { FilterRail, type StoreOption } from "./unifideck-page/FilterRail";
 import { PageBar } from "./unifideck-page/PageBar";
 import { C, FOCUS_CSS, MONO } from "./unifideck-page/theme";
 import { clearCoverCache } from "./unifideck-page/cover";
+import {
+  DEFAULT_FILTERS,
+  loadFilters,
+  saveFilters,
+} from "./unifideck-page/preferences";
 import { toSteamAppId } from "../lib/appid";
 import {
   availableSorts,
+  initialOf,
+  jumpToAdjacentInitial,
   compatFor,
   countByStore,
   indexPlaytimes,
@@ -108,9 +115,14 @@ const UnifideckPageInner: FC = () => {
     [],
   );
 
-  const [store, setStore] = useState<StoreFilter>("all");
-  const [status, setStatus] = useState<StatusFilter>("all");
-  const [sort, setSort] = useState<SortKey>("title");
+  // Filters start from whatever the last visit left behind. No store
+  // list is passed here on purpose: the library has not arrived yet, so
+  // there is nothing to validate against, and the effect below drops a
+  // remembered store that turns out no longer to exist.
+  const remembered = useRef(loadFilters()).current;
+  const [store, setStore] = useState<StoreFilter>(remembered.store);
+  const [status, setStatus] = useState<StatusFilter>(remembered.status);
+  const [sort, setSort] = useState<SortKey>(remembered.sort);
   const [searchText, setSearchText] = useState("");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(0);
@@ -149,6 +161,19 @@ const UnifideckPageInner: FC = () => {
   );
 
   const storeCounts = useMemo(() => countByStore(all), [all]);
+
+  // Persist the filters, and drop a remembered store that no longer
+  // exists. Without the second half, disconnecting a store would
+  // reopen the page filtered to nothing, with the reason invisible.
+  useEffect(() => {
+    if (all.length === 0) return;
+    const known = [...storeCounts.keys()];
+    if (store !== "all" && !known.includes(store)) {
+      setStore(DEFAULT_FILTERS.store);
+      return;
+    }
+    saveFilters({ store, status, sort });
+  }, [all.length, storeCounts, store, status, sort]);
 
   const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
 
@@ -241,6 +266,30 @@ const UnifideckPageInner: FC = () => {
   // grows on its own after the first session.
   const sorts = useMemo(() => availableSorts(playtimes), [playtimes]);
 
+  /**
+   * Jump to the next or previous initial.
+   *
+   * Only offered while sorted by title — under any other order "the
+   * next letter" is not a position the grid has. Works on the whole
+   * filtered result, not the current page, then lands on whichever
+   * page holds it: with 18 pages of alphabetical titles, bumpering
+   * seventeen times to reach the R's is the thing this replaces.
+   */
+  const jumpLetter = useCallback(
+    (direction: 1 | -1) => {
+      if (sort !== "title") return;
+      const from = safePage * PAGE_SIZE;
+      const target = jumpToAdjacentInitial(filtered, from, direction);
+      if (target == null) return;
+      const page = Math.floor(target / PAGE_SIZE);
+      setPage(page);
+      scrollRef.current?.scrollTo({ top: 0 });
+      setRailHiddenByScroll(false);
+      lastScrollTop.current = 0;
+    },
+    [sort, filtered, safePage],
+  );
+
   const cycleSort = useCallback(() => {
     setSort((current) => {
       const at = sorts.indexOf(current);
@@ -329,11 +378,17 @@ const UnifideckPageInner: FC = () => {
         case GamepadButton.SECONDARY:
           cycleSort();
           break;
+        case GamepadButton.TRIGGER_LEFT:
+          jumpLetter(-1);
+          break;
+        case GamepadButton.TRIGGER_RIGHT:
+          jumpLetter(1);
+          break;
         default:
           break;
       }
     },
-    [goToPage, safePage, cycleSort],
+    [goToPage, safePage, cycleSort, jumpLetter],
   );
 
   const storeOptions: StoreOption[] = useMemo(
@@ -474,6 +529,27 @@ const UnifideckPageInner: FC = () => {
             sortLabel={`${t("unifideckPage.sortBy", "Sort")}: ${
               sortLabels[sort]
             }`}
+            letter={
+              sort === "title" && pageGames.length > 0
+                ? initialOf(pageGames[0].title)
+                : null
+            }
+            hintLetter={
+              sort === "title" ? t("unifideckPage.hintLetter", "L2/R2 letter") : undefined
+            }
+            syncLine={
+              sync.isSyncing
+                ? `${t("unifideckPage.syncing", "Syncing")}${
+                    sync.progress?.progress_percent
+                      ? ` ${Math.round(sync.progress.progress_percent)}%`
+                      : "…"
+                  }${
+                    sync.progress?.current_game?.label
+                      ? ` · ${sync.progress.current_game.label}`
+                      : ""
+                  }`
+                : null
+            }
             page={safePage + 1}
             pages={pages}
             pageLabel={t("unifideckPage.page", "Page")}

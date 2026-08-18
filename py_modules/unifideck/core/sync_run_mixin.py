@@ -45,6 +45,16 @@ logger = logging.getLogger(__name__)
 PER_STORE_FETCH_TIMEOUT_SECONDS = 120
 
 
+#: A store must have had at least this many games before a drop is
+#: worth reporting; small libraries swing wildly for ordinary reasons.
+_COLLAPSE_FLOOR = 10
+
+#: Keeping less than this fraction of the previous count counts as a
+#: collapse. Half is deliberately loose: the case this exists for went
+#: from 603 games to zero.
+_COLLAPSE_RATIO = 0.5
+
+
 class _SyncRunMixin:
     """Per-run sync orchestration for :class:`SyncService`."""
 
@@ -144,6 +154,7 @@ class _SyncRunMixin:
                 else:
                     libraries[store.store_name] = games
             else:
+                await self._warn_on_collapse(store.store_name, games)
                 libraries[store.store_name] = games
             if self._cancel_event.is_set():
                 return await self._sync_cancelled_result(
@@ -435,6 +446,53 @@ class _SyncRunMixin:
                 store=store.store_name,
             )
             return [], str(e)
+
+    async def _warn_on_collapse(
+        self, store_name: str, games: list[Game],
+    ) -> None:
+        """Warn when a *successful* fetch returns far fewer games.
+
+        The failure path is already guarded: a store that errors keeps
+        its previous library. This covers the case that guard cannot
+        see — a fetch that succeeds and simply returns almost nothing.
+
+        That is what happened on 2026-08-18. The xCloud catalogue call
+        swallowed its own timeout and reported zero titles as a normal
+        result, so nothing downstream had any reason to object: the
+        library was replaced, 603 Steam shortcuts were deleted, and the
+        run logged ``0 errors``. The loss was found days-of-use later,
+        by accident.
+
+        This does **not** block the sync. A library really can shrink —
+        a lapsed subscription, a revoked licence, games pulled from a
+        catalogue — and refusing to record that would be a worse bug
+        than the one being prevented. It tells the user, and leaves the
+        decision to them.
+
+        Silent below ``_COLLAPSE_FLOOR`` games, because a store with a
+        handful of titles swings by large percentages for ordinary
+        reasons.
+        """
+        previous = (self._all_games or {}).get(store_name)
+        if not previous or len(previous) < _COLLAPSE_FLOOR:
+            return
+        before, after = len(previous), len(games)
+        if after >= before * _COLLAPSE_RATIO:
+            return
+        lost = before - after
+        logger.warning(
+            "[SyncService] %s returned %d game(s), down from %d — "
+            "%d missing after a fetch that reported no error",
+            store_name, after, before, lost,
+        )
+        await self._bus.emit(
+            Events.LAUNCHER_STAGE,
+            severity="warning",
+            i18n_key="toasts.library.storeShrank",
+            i18n_params={"store": store_name, "lost": lost, "before": before},
+            duration_ms=12000,
+            store=store_name,
+        )
 
     async def _emit_progress(
         self,

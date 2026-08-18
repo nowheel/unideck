@@ -16,6 +16,13 @@ import { C, GLASS_FOOTER, MONO, glass } from "./theme";
 
 interface Props {
   sortLabel: string;
+  /** Initial of the first game on this page; only while sorted by
+   *  title, where the letter jump means something. */
+  letter?: string | null;
+  hintLetter?: string;
+  /** Live sync line, already interpolated; replaces the hints while a
+   *  sync runs, since that is the more interesting news. */
+  syncLine?: string | null;
   /** 1-based; equals `pages` when there is a single page. */
   page: number;
   pages: number;
@@ -34,6 +41,9 @@ const cell: CSSProperties = {
 
 export const PageBar: FC<Props> = ({
   sortLabel,
+  letter,
+  hintLetter,
+  syncLine,
   page,
   pages,
   pageLabel,
@@ -70,8 +80,32 @@ export const PageBar: FC<Props> = ({
         {pageLabel} {page}/{pages}
       </span>
     )}
+    {letter && (
+      <span
+        style={{
+          ...cell,
+          color: C.onAmber,
+          background: C.amber,
+          borderRadius: 3,
+          padding: "1px 6px",
+          fontWeight: 700,
+        }}
+      >
+        {letter}
+      </span>
+    )}
     <span style={{ flex: 1 }} />
-    {pages > 1 && <span style={cell}>{hintPage}</span>}
-    <span style={cell}>{hintSort}</span>
+    {/* A running sync outranks the button hints: it is the only thing
+        on this bar that is changing, and the one the user may be
+        waiting on. */}
+    {syncLine ? (
+      <span style={{ ...cell, color: C.amberSoft }}>{syncLine}</span>
+    ) : (
+      <>
+        {pages > 1 && <span style={cell}>{hintPage}</span>}
+        {hintLetter && <span style={cell}>{hintLetter}</span>}
+        <span style={cell}>{hintSort}</span>
+      </>
+    )}
   </div>
 );

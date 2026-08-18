@@ -75,6 +75,28 @@ Ora: griglia paginata a 42 tile (DOM limitato per costruzione), chip
 `Focusable`, ricerca con debounce, refetch silenzioso. Le regole di
 selezione stanno in `unifideck-page/catalogue.ts`, coperte da test.
 
+### La rete di sicurezza sulla libreria
+
+Oltre a impedire che un guasto cancelli i dati, ora la sincronizzazione
+**avvisa** quando una fetch riuscita restituisce molti meno giochi di
+prima (meno della metà, su librerie da almeno 10 titoli). Non blocca:
+una libreria può davvero rimpicciolirsi, e rifiutarsi di registrarlo
+sarebbe un difetto peggiore di quello che previene. Il guasto del 18
+agosto sarebbe comparso come avviso invece che come scoperta casuale
+giorni dopo.
+
+### Cosa fa la pagina, oltre a sfogliare
+
+- **Ricorda i filtri** fra una visita e l'altra (`localStorage`, non la
+  configurazione: quella è validata dallo schema, ed è così che il
+  plugin era finito in modalità degradata). Uno store scomparso dalla
+  libreria decade su "tutti" invece di lasciare la pagina vuota.
+- **L2/R2 saltano alla lettera** precedente o successiva, con l'ordine
+  alfabetico. Su 18 pagine è la differenza fra un salto e diciassette
+  pressioni di R1. La barra in basso mostra la lettera corrente.
+- **La sincronizzazione mostra l'avanzamento** nella barra in basso,
+  che durante un sync prende il posto dei suggerimenti dei tasti.
+
 ### Lo schema di configurazione (`py_modules/unifideck/config/schema.json`)
 
 Il plugin ripartiva **in modalità degradata a ogni avvio**. Non era

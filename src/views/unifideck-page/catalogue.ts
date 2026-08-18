@@ -268,3 +268,54 @@ export function formatSize(bytes: number | undefined): string {
   if (gb >= 1) return `${gb.toFixed(gb >= 10 ? 0 : 1)} GB`;
   return `${Math.max(1, Math.round(bytes / 1024 ** 2))} MB`;
 }
+
+
+/**
+ * The initial a title sorts under.
+ *
+ * Digits and symbols collapse to `#`, matching how the alphabetical
+ * sort actually groups them — `localeCompare` puts "1000xRESIST" and
+ * "33 Immortals" together ahead of the letters, so the jump should
+ * treat them as one bucket rather than offering "1" and "3".
+ */
+export function initialOf(title: string): string {
+  const first = title.trim().charAt(0).toUpperCase();
+  return /[A-Z]/.test(first) ? first : "#";
+}
+
+/**
+ * Index of the first game whose initial differs from the one at
+ * `from`, walking in `direction`. Returns `null` when there is no
+ * further letter that way.
+ *
+ * Only meaningful while sorted by title; the page hides the jump under
+ * every other sort, where "the next letter" means nothing.
+ *
+ * Walking backwards lands on the *start* of the previous letter rather
+ * than its last entry — jumping back should feel like reaching the top
+ * of a section, not its bottom.
+ */
+export function jumpToAdjacentInitial(
+  games: readonly Game[],
+  from: number,
+  direction: 1 | -1,
+): number | null {
+  if (games.length === 0) return null;
+  const start = Math.max(0, Math.min(from, games.length - 1));
+  const current = initialOf(games[start].title);
+
+  if (direction === 1) {
+    for (let i = start; i < games.length; i++) {
+      if (initialOf(games[i].title) !== current) return i;
+    }
+    return null;
+  }
+
+  let i = start;
+  while (i > 0 && initialOf(games[i - 1].title) === current) i--;
+  if (i === 0) return null;
+  const previous = initialOf(games[i - 1].title);
+  let j = i - 1;
+  while (j > 0 && initialOf(games[j - 1].title) === previous) j--;
+  return j;
+}

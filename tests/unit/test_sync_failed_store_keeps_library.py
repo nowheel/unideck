@@ -73,6 +73,13 @@ class _Svc(m._SyncRunMixin):
         self._cancel_event = types.SimpleNamespace(is_set=lambda: False)
         self._current_store = None
         self.finalized: dict[str, list] | None = None
+        self.emitted: list = []
+
+        class _Bus:
+            async def emit(_self, event, **kw):
+                self.emitted.append((event, kw))
+
+        self._bus = _Bus()
 
     async def _setup_sync(self):
         return 0.0, [types.SimpleNamespace(store_name="microsoft")]
@@ -122,3 +129,54 @@ async def test_failed_store_with_nothing_known_stays_empty():
     # result passes through rather than inventing state.
     finalized = await _run({}, [], "timeout")
     assert finalized["microsoft"] == []
+
+
+# ── 3. Un crollo su una fetch riuscita va segnalato ───────────────────
+
+class _WarnSvc(m._SyncRunMixin):
+    """Harness for `_warn_on_collapse` alone."""
+
+    def __init__(self, previous: list) -> None:
+        self._all_games = {"microsoft": previous}
+        self.emitted: list = []
+
+        class _Bus:
+            async def emit(_self, event, **kw):
+                self.emitted.append((event, kw))
+
+        self._bus = _Bus()
+
+
+@pytest.mark.asyncio
+async def test_warns_when_a_successful_fetch_loses_most_of_a_library():
+    # The incident: 603 games in, zero out, no error reported.
+    svc = _WarnSvc([f"g{i}" for i in range(603)])
+    await svc._warn_on_collapse("microsoft", [])
+    assert len(svc.emitted) == 1
+    _, kw = svc.emitted[0]
+    assert kw["i18n_key"] == "toasts.library.storeShrank"
+    assert kw["i18n_params"]["lost"] == 603
+
+
+@pytest.mark.asyncio
+async def test_stays_quiet_for_an_ordinary_change():
+    svc = _WarnSvc([f"g{i}" for i in range(100)])
+    await svc._warn_on_collapse("microsoft", [f"g{i}" for i in range(97)])
+    assert svc.emitted == []
+
+
+@pytest.mark.asyncio
+async def test_stays_quiet_for_a_small_library():
+    # Three of five games leaving a tiny library is not evidence of
+    # anything; only large libraries make the ratio meaningful.
+    svc = _WarnSvc(["a", "b", "c", "d", "e"])
+    await svc._warn_on_collapse("microsoft", ["a", "b"])
+    assert svc.emitted == []
+
+
+@pytest.mark.asyncio
+async def test_does_not_block_the_sync():
+    # A genuine shrink must still be recorded: warning is not vetoing.
+    previous = {"microsoft": [f"g{i}" for i in range(603)]}
+    finalized = await _run(previous, ["still-owned"], None)
+    assert finalized["microsoft"] == ["still-owned"]

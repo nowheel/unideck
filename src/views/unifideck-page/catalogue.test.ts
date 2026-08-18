@@ -26,6 +26,8 @@ vi.mock("../../lib/protondb-cache", () => ({
 
 import {
   availableSorts,
+  initialOf,
+  jumpToAdjacentInitial,
   countByStore,
   gameId,
   gameKey,
@@ -333,5 +335,49 @@ describe("availableSorts", () => {
   it("offers every sort once playtime exists", () => {
     const index = indexPlaytimes([playtime({ game_id: "a" })]);
     expect(availableSorts(index)).toEqual([...SORT_KEYS]);
+  });
+});
+
+describe("letter jump", () => {
+  const titles = [
+    "1000xRESIST", "33 Immortals",           // bucket "#"
+    "Abyssus", "ABZU", "Aliens",             // bucket "A"
+    "Braid",                                 // bucket "B"
+    "Celeste", "Cocoon",                     // bucket "C"
+  ];
+  const games = titles.map((t, i) =>
+    ({ id: String(i), store_game_id: String(i), title: t, store: "epic" } as Game),
+  );
+
+  it("groups digits and symbols under a single bucket", () => {
+    expect(initialOf("1000xRESIST")).toBe("#");
+    expect(initialOf("33 Immortals")).toBe("#");
+    expect(initialOf("  spaced")).toBe("S");
+    expect(initialOf("")).toBe("#");
+  });
+
+  it("jumps forward to the start of the next letter", () => {
+    expect(jumpToAdjacentInitial(games, 0, 1)).toBe(2);   // # → A
+    expect(jumpToAdjacentInitial(games, 2, 1)).toBe(5);   // A → B
+    expect(jumpToAdjacentInitial(games, 5, 1)).toBe(6);   // B → C
+  });
+
+  it("jumps back to the start of the previous letter, not its end", () => {
+    // From "Cocoon" the useful destination is "Braid", and from mid-A
+    // it is the first "#" entry — landing on the last item of the
+    // previous letter would feel like the jump undershot.
+    expect(jumpToAdjacentInitial(games, 7, -1)).toBe(5);
+    expect(jumpToAdjacentInitial(games, 3, -1)).toBe(0);
+  });
+
+  it("returns null at the ends", () => {
+    expect(jumpToAdjacentInitial(games, 7, 1)).toBeNull();
+    expect(jumpToAdjacentInitial(games, 0, -1)).toBeNull();
+  });
+
+  it("handles an empty list and out-of-range indices", () => {
+    expect(jumpToAdjacentInitial([], 0, 1)).toBeNull();
+    expect(jumpToAdjacentInitial(games, 999, 1)).toBeNull();
+    expect(jumpToAdjacentInitial(games, -5, -1)).toBeNull();
   });
 });
