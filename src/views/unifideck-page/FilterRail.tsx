@@ -44,6 +44,7 @@ const Chip: FC<{
       noFocusRing
       onActivate={onActivate}
       data-udk="chip"
+      data-udk-active={active ? "1" : undefined}
       style={{
         ...chipStyle(active),
         display: "inline-flex",

@@ -237,33 +237,36 @@ Da lì `STEAM_TOP_INSET` / `STEAM_BOTTOM_INSET`.
 
 ---
 
-## Il focus, e una misura che mi ha ingannato due volte
+## Il focus col pad non e' il focus del DOM
 
-Sondando da CDP sembrava che il focus programmatico **non generasse
-eventi**: `activeElement` cambiava e nessun `focusin` scattava. Ci ho
-costruito sopra due decisioni, e la conclusione era **falsa**.
+**Steam non sposta il focus DOM quando navighi col pad.** Marca
+l'elemento con la propria classe `gpfocus`, e mette `gpfocuswithin` su
+tutti gli antenati. Quindi `:focus` non combacia mai durante la
+navigazione col controller, e qualsiasi evidenziazione basata su di
+esso — o sugli eventi React `onFocus` — resta invisibile.
 
-La causa: il debugger pilota una finestra che il sistema non considera
-attiva, quindi `document.hasFocus()` è `false`. Un documento senza
-focus non emette eventi di focus **e non combacia con `:focus`**. Con
-`Emulation.setFocusEmulationEnabled` — cioè nello stato in cui si trova
-la Deck quando qualcuno la sta usando — funziona tutto normalmente.
+Per verificarlo: `document.querySelectorAll(".gpfocus")`. Provare con
+un `.focus()` programmatico **non dimostra niente** sul comportamento
+del pad.
 
-Da cui due regole per chi indaga qui dentro:
+Ci sono arrivato dopo tre tentativi sbagliati, e vale la pena
+elencarli perche' ognuno sembrava una risposta:
 
-- **abilitare sempre l'emulazione del focus** prima di misurare
-  qualunque cosa lo riguardi, altrimenti si misura un artefatto;
-- attenzione alle **transizioni**: le tile hanno `transition: 0.18s`, e
-  leggere lo stile subito dopo `.focus()` restituisce valori a metà
-  strada. Una prima lettura dava `border-top-color` a
-  `rgba(252,213,143,0.157)` e faceva sembrare che la regola non si
-  applicasse; mezzo secondo dopo era `rgb(249,177,48)`, cioè esatta.
+1. lo stato React via `onFocus`/`onBlur`: non si illuminava niente;
+2. diagnosi «gli eventi di focus non scattano qui» — falsa: il
+   debugger pilota una finestra che il sistema non considera attiva,
+   quindi `document.hasFocus()` e' `false`, e un documento senza focus
+   non emette quegli eventi ne' combacia con `:focus`;
+3. riscritto su `:focus` e verificato forzando il focus con
+   l'emulazione CDP attiva: funzionava nel test, e col pad ancora no.
 
-L'evidenziazione del focus vive ora in `FOCUS_CSS` (`theme.ts`), non
-nello stato React. Non perché gli eventi non funzionino — funzionano —
-ma perché il CSS legge lo stato del documento senza ascoltatori e
-risparmia a 42 tile un aggiornamento di stato a ogni movimento dello
-stick.
+Ora `FOCUS_CSS` punta `.gpfocus`, con `:focus` accanto per la modalita'
+desktop dove un mouse o il tasto Tab spostano il focus DOM vero.
+
+**Attenzione anche alle transizioni:** questi elementi hanno
+`transition: 0.18s`, quindi leggere lo stile calcolato subito dopo il
+focus restituisce valori a meta' strada, che sembrano una regola che
+non si applica. Aspettare mezzo secondo.
 
 ## Rimasto da verificare
 

@@ -135,43 +135,55 @@ export function glass(tint: string, blurPx = 16): CSSProperties {
 }
 
 /**
- * Focus styling, as a stylesheet rather than as React state.
+ * Focus styling, driven by Steam's own gamepad-focus class.
  *
- * Chips and tiles originally tracked focus with `onFocus`/`onBlur`
- * feeding component state, and nothing ever lit up: navigation worked,
- * the highlight was invisible.
+ * Getting here took three wrong turns, all worth recording because each
+ * one looked like an answer.
  *
- * The first diagnosis was that focus events never fire on this device,
- * because probing showed `document.activeElement` moving while no
- * `focusin` arrived. **That was wrong, and wrong for an instructive
- * reason**: the probe drove a window the system did not consider
- * active, so `document.hasFocus()` was `false`. A document without
- * focus neither dispatches those events nor matches `:focus`. Enabling
- * CDP focus emulation — the state the Deck is actually in when someone
- * is using it — shows both working normally.
+ * 1. Chips and tiles tracked focus with `onFocus`/`onBlur` into React
+ *    state. Nothing ever lit up.
+ * 2. Diagnosed as "focus events never fire here", because probing
+ *    showed `activeElement` moving with no `focusin`. Wrong: the probe
+ *    drove a window the system did not consider active, so
+ *    `document.hasFocus()` was false — and an unfocused document
+ *    neither dispatches those events nor matches `:focus`.
+ * 3. Rewritten to use `:focus`. Verified by forcing focus over CDP with
+ *    emulation on… and it still did not light up on the actual pad.
  *
- * So the events were fine and the original approach would have worked.
- * CSS is kept anyway, on merit: it reads the document's focus state
- * directly, needs no listener, and spares 42 tiles a state update every
- * time the stick moves one square.
+ * The reason is the one thing none of those tests could show: **Steam's
+ * gamepad navigation does not move DOM focus.** It marks the focused
+ * element with its own `gpfocus` class, and `gpfocuswithin` on every
+ * ancestor. Confirmed on-device — the element carrying `gpfocus` while
+ * navigating is exactly the tile tagged `data-udk="tile"`.
+ *
+ * So `.gpfocus` is the selector that matters. `:focus` is kept beside
+ * it for Desktop Mode, where a mouse or Tab key moves real DOM focus
+ * and Steam adds no class.
+ *
+ * The lesson, for whoever debugs the next focus problem: verifying with
+ * programmatic `.focus()` proves nothing about the gamepad. Read
+ * `document.querySelectorAll(".gpfocus")` instead.
  *
  * Two implementation notes:
  *
  *   - hooks in via `data-udk`, not `className`: Steam sets its own
- *     `Panel Focusable` classes on these elements and expects them, so
- *     an attribute is the safe place to hang a selector;
+ *     `Panel Focusable` classes and appends `gpfocus` to them, so an
+ *     attribute is the safe place to hang a selector;
  *   - `!important` is required, not sloppiness. Every element here
- *     carries inline styles, which otherwise win over any stylesheet
- *     rule regardless of specificity.
+ *     carries inline styles, which otherwise win regardless of
+ *     specificity.
  *
- * Verified on-device with focus emulation on: a focused tile reports
- * `outline: 2px solid`, an amber border, and the lift transform.
+ * And when measuring the result: these elements carry a 0.18s
+ * transition, so reading computed style immediately after focus returns
+ * half-finished values that look like a rule failing to apply.
  */
 export const FOCUS_CSS = `
+[data-udk].gpfocus,
 [data-udk]:focus {
   outline: 2px solid ${C.amberSoft} !important;
   outline-offset: 2px !important;
 }
+[data-udk="tile"].gpfocus,
 [data-udk="tile"]:focus {
   background: ${C.panel2} !important;
   border-color: ${C.amber} !important;
@@ -179,12 +191,20 @@ export const FOCUS_CSS = `
   box-shadow: 0 14px 30px -12px rgba(0,0,0,0.7),
               0 0 0 1px ${C.amberGlow} !important;
 }
+[data-udk="tile"].gpfocus [data-udk-title],
 [data-udk="tile"]:focus [data-udk-title] {
   color: ${C.text} !important;
 }
+[data-udk="chip"].gpfocus,
 [data-udk="chip"]:focus {
   border-color: ${C.amberSoft} !important;
+  color: ${C.amberSoft} !important;
 }
+[data-udk="chip"][data-udk-active="1"].gpfocus,
+[data-udk="chip"][data-udk-active="1"]:focus {
+  color: ${C.onAmber} !important;
+}
+[data-udk="btn"].gpfocus,
 [data-udk="btn"]:focus {
   background: ${C.amber} !important;
   border-color: ${C.amber} !important;
