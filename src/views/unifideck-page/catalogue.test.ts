@@ -26,8 +26,10 @@ vi.mock("../../lib/protondb-cache", () => ({
 
 import {
   availableSorts,
+  initialBoundaries,
   initialOf,
   jumpToAdjacentInitial,
+  jumpToAdjacentLetterPage,
   countByStore,
   gameId,
   gameKey,
@@ -379,5 +381,51 @@ describe("letter jump", () => {
     expect(jumpToAdjacentInitial([], 0, 1)).toBeNull();
     expect(jumpToAdjacentInitial(games, 999, 1)).toBeNull();
     expect(jumpToAdjacentInitial(games, -5, -1)).toBeNull();
+  });
+});
+
+describe("letter jump anchored on pages", () => {
+  // Mirrors the shape of the real library: "#" is a tiny bucket, so the
+  // first letter boundary falls inside page 1 and an item-anchored jump
+  // would appear to do nothing.
+  const titles = [
+    ...["1000xRESIST", "33 Immortals"],        // 0-1   "#"
+    ...Array.from({ length: 8 }, (_, i) => `A game ${i}`),  // 2-9  "A"
+    ...Array.from({ length: 6 }, (_, i) => `B game ${i}`),  // 10-15 "B"
+    ...Array.from({ length: 6 }, (_, i) => `C game ${i}`),  // 16-21 "C"
+  ];
+  const games = titles.map((t, i) =>
+    ({ id: String(i), store_game_id: String(i), title: t, store: "epic" } as Game),
+  );
+  const PAGE = 5; // pagine: 0=[0..4] 1=[5..9] 2=[10..14] 3=[15..19] 4=[20..21]
+
+  it("lists every letter boundary", () => {
+    expect(initialBoundaries(games)).toEqual([0, 2, 10, 16]);
+  });
+
+  it("skips a boundary that sits on the current page", () => {
+    // Regression: "A" starts at index 2, still page 0. Jumping there
+    // would leave the view unchanged and read as a dead button.
+    expect(jumpToAdjacentLetterPage(games, 0, PAGE, 1)).toBe(10);
+  });
+
+  it("always lands on a later page going forward", () => {
+    const target = jumpToAdjacentLetterPage(games, 1, PAGE, 1)!;
+    expect(Math.floor(target / PAGE)).toBeGreaterThan(1);
+  });
+
+  it("always lands on an earlier page going back", () => {
+    const target = jumpToAdjacentLetterPage(games, 3, PAGE, -1)!;
+    expect(Math.floor(target / PAGE)).toBeLessThan(3);
+  });
+
+  it("returns null at the ends", () => {
+    expect(jumpToAdjacentLetterPage(games, 4, PAGE, 1)).toBeNull();
+    expect(jumpToAdjacentLetterPage(games, 0, PAGE, -1)).toBeNull();
+  });
+
+  it("handles an empty library", () => {
+    expect(jumpToAdjacentLetterPage([], 0, PAGE, 1)).toBeNull();
+    expect(initialBoundaries([])).toEqual([]);
   });
 });

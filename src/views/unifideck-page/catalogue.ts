@@ -284,6 +284,59 @@ export function initialOf(title: string): string {
 }
 
 /**
+ * Indices where a new initial starts, in order. `[0]` is always the
+ * first game.
+ *
+ * Precomputing the boundaries is what makes a *useful* letter jump
+ * possible: the naive version — "first differing initial after here" —
+ * frequently lands inside the page you are already looking at, so the
+ * button does nothing visible and reads as broken. With 741 games at
+ * 42 per page, "A" begins at index 3 and "H" shares a page with "G".
+ */
+export function initialBoundaries(games: readonly Game[]): number[] {
+  const out: number[] = [];
+  let previous: string | null = null;
+  for (let i = 0; i < games.length; i++) {
+    const initial = initialOf(games[i].title);
+    if (initial !== previous) {
+      out.push(i);
+      previous = initial;
+    }
+  }
+  return out;
+}
+
+/**
+ * The index to jump to for a letter step that actually moves.
+ *
+ * Returns the nearest letter boundary that sits on a *different page*
+ * from `currentPage`, in the given direction, or `null` at the ends.
+ * Anchoring on the page rather than on an item is the whole point: a
+ * jump the user cannot see is indistinguishable from a jump that never
+ * happened.
+ */
+export function jumpToAdjacentLetterPage(
+  games: readonly Game[],
+  currentPage: number,
+  pageSize: number,
+  direction: 1 | -1,
+): number | null {
+  const boundaries = initialBoundaries(games);
+  if (direction === 1) {
+    for (const index of boundaries) {
+      if (Math.floor(index / pageSize) > currentPage) return index;
+    }
+    return null;
+  }
+  for (let i = boundaries.length - 1; i >= 0; i--) {
+    if (Math.floor(boundaries[i] / pageSize) < currentPage) {
+      return boundaries[i];
+    }
+  }
+  return null;
+}
+
+/**
  * Index of the first game whose initial differs from the one at
  * `from`, walking in `direction`. Returns `null` when there is no
  * further letter that way.

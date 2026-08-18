@@ -58,7 +58,7 @@ import { toSteamAppId } from "../lib/appid";
 import {
   availableSorts,
   initialOf,
-  jumpToAdjacentInitial,
+  jumpToAdjacentLetterPage,
   compatFor,
   countByStore,
   indexPlaytimes,
@@ -270,16 +270,23 @@ const UnifideckPageInner: FC = () => {
    * Jump to the next or previous initial.
    *
    * Only offered while sorted by title — under any other order "the
-   * next letter" is not a position the grid has. Works on the whole
-   * filtered result, not the current page, then lands on whichever
-   * page holds it: with 18 pages of alphabetical titles, bumpering
-   * seventeen times to reach the R's is the thing this replaces.
+   * next letter" is not a position the grid has.
+   *
+   * The target is the nearest letter boundary on a *different page*.
+   * The first version anchored on the current page's first item and
+   * jumped to the next differing initial, which on this library lands
+   * at index 3 — still page 1. The jump ran, nothing moved, and the
+   * button looked dead. A jump you cannot see has not happened.
    */
   const jumpLetter = useCallback(
     (direction: 1 | -1) => {
       if (sort !== "title") return;
-      const from = safePage * PAGE_SIZE;
-      const target = jumpToAdjacentInitial(filtered, from, direction);
+      const target = jumpToAdjacentLetterPage(
+        filtered,
+        safePage,
+        PAGE_SIZE,
+        direction,
+      );
       if (target == null) return;
       const page = Math.floor(target / PAGE_SIZE);
       setPage(page);
@@ -363,9 +370,15 @@ const UnifideckPageInner: FC = () => {
     Navigation.Navigate(`/library/app/${toSteamAppId(game.app_id)}`);
   }, []);
 
-  // Bumpers page, Y cycles the sort. Bound on the page root so they
-  // work wherever focus happens to be — a shortcut that only fires
-  // while a tile is focused is a shortcut users conclude is broken.
+  // Bumpers page, triggers jump by letter, Y cycles the sort. Bound on
+  // the page root so they work wherever focus happens to be — a
+  // shortcut that only fires while a tile is focused is a shortcut
+  // users conclude is broken.
+  //
+  // Nothing else in this plugin binds the analog triggers, so whether
+  // Steam delivers them here at all was an open question. It does:
+  // instrumenting `onButtonDown` on-device recorded 12 presses of
+  // TRIGGER_RIGHT and 5 of TRIGGER_LEFT alongside the bumpers.
   const onButtonDown = useCallback(
     (evt: { detail: { button: number } }): void => {
       switch (evt.detail.button) {
