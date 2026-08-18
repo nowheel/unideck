@@ -1326,7 +1326,7 @@ window.SteamClient.Apps.RegisterForGameActionStart((id, appId, action) => {
 - **Decky Frontend Lib:** `/home/deck/Downloads/decky-frontend-lib-main`
 - **CSSLoader Plugin:** `/home/deck/homebrew/plugins/SDH-CssLoader/`
 - **MoonDeck Plugin:** `/home/deck/Downloads/moondeck-main`
-- **Decky Docs:** https://docs.deckbrew.xyz/
+- **Decky Docs:** https://wiki.deckbrew.xyz/
 - **Steam CDP Port:** http://127.0.0.1:8080/json/version
 
 ---
