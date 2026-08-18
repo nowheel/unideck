@@ -12,6 +12,11 @@ doing so.
 > [mubaraknumann/unifideck](https://github.com/mubaraknumann/unifideck). Install
 > that one. This fork exists for one Deck, tracks upstream `Release-0.7.3`, and
 > is not a distribution.
+>
+> **Bugs in Unifideck itself belong
+> [upstream](https://github.com/mubaraknumann/unifideck/issues), not here.**
+> Only the catalogue page and the four fixes listed under
+> [Scope](#scope-and-what-this-fork-does-not-fix) are maintained in this repo.
 
 ---
 
@@ -195,6 +200,42 @@ in English and Italian, and fall back to English elsewhere.
 
 *From the original project.* TypeScript + React on `@decky/ui`, Python backend
 on a five-layer architecture with an EventBus and service DI, vitest and pytest.
+
+---
+
+## Scope, and what this fork does not fix
+
+This is a thin layer on someone else's plugin, and it is worth being precise
+about where the line falls.
+
+**Unifideck does the hard parts.** Store authentication and catalogues, the
+downloader, the launcher, Proton and prefix handling, cloud saves, the artwork
+pipeline, the Steam shortcut machinery — none of that is this fork's work, and
+none of it is maintained here.
+
+**Bugs in any of that belong upstream**, at
+[mubaraknumann/unifideck/issues](https://github.com/mubaraknumann/unifideck/issues).
+A game that will not install, a store that will not authenticate, a title
+missing after a sync, artwork that never arrives: those are Unifideck's, and
+reporting them here would only delay the person who can actually fix them.
+
+**What is maintained here** is the short list this fork actually changed: the
+standalone catalogue page and its routing, and the four defects below.
+
+Those four were found while building the page, and were reported upstream
+rather than kept:
+
+| Defect | Upstream |
+| --- | --- |
+| Failed store fetch wipes the library and its shortcuts | [#405](https://github.com/mubaraknumann/unifideck/issues/405) |
+| Config schema rejects the `steam` section the plugin writes | [#430](https://github.com/mubaraknumann/unifideck/issues/430) |
+| `SteamBridge` calls a Steam API that no longer exists | [#431](https://github.com/mubaraknumann/unifideck/issues/431) |
+| `Game` type does not match the backend dataclass | [#432](https://github.com/mubaraknumann/unifideck/issues/432) |
+
+They are fixed here because this Deck needed them working, not as a claim on
+them. If upstream takes them, the fixes here become redundant and that is the
+better outcome — a fix in Unifideck reaches everyone who uses it, and this fork
+reaches one Steam Deck.
 
 ---
 
