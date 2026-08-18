@@ -268,8 +268,13 @@ desktop dove un mouse o il tasto Tab spostano il focus DOM vero.
 focus restituisce valori a meta' strada, che sembrano una regola che
 non si applica. Aspettare mezzo secondo.
 
-## Rimasto da verificare
+## Verificato col pad in mano
 
-Il comportamento reale col pad in mano: la sensazione della
-navigazione fra chip e griglia, e il ritorno della barra dei filtri
-quando si è ritirata.
+L'evidenziazione del focus su chip e tile è stata provata sul
+dispositivo, col controller, dall'utente — non simulata. È l'unica
+prova che vale per questo meccanismo, visto che `.focus()` da CDP
+esercita un percorso diverso da quello del pad.
+
+Restano non verificati per via automatica, e vanno provati a mano dopo
+ogni modifica alla pagina: il ritorno della barra dei filtri quando si
+è ritirata, e la navigazione L1/R1 fra le pagine.
