@@ -343,11 +343,40 @@ def _make_executable(path: Path) -> None:
     path.chmod(st.st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
 
 
-def _promote_extracted(staging: Path, tag: str) -> Path | None:
-    """Validate the extracted ``<tag>/`` tree and move it into place.
+def _find_extracted_root(staging: Path, tag: str) -> Path | None:
+    """Locate the archive's top-level directory inside ``staging``.
 
-    GE-Proton archives expand to a single top-level ``<tag>/`` dir. The
-    move into ``COMPAT_TOOLS_DIR`` only happens after the ``proton``
+    GE-Proton archives used to expand to a ``<tag>/`` dir matching the
+    release tag exactly, which is what ``_promote_extracted`` assumed.
+    Multi-arch releases (this one included) name the ``.tar.gz`` asset —
+    and therefore its top-level dir — after the ASSET instead, e.g. the
+    ``GE-Proton11-5`` tag ships ``GE-Proton11-5-x86_64.tar.gz`` /
+    ``GE-Proton11-5-aarch64.tar.gz``, which extract to
+    ``GE-Proton11-5-x86_64/``. A strict ``staging / tag`` lookup never
+    finds that directory, so every install of such a release logged
+    "extracted tree missing proton script" and fell back to Proton
+    Experimental — even for a perfectly complete download. Try the exact
+    tag first (still correct for older single-arch releases), then fall
+    back to the sole other directory staging contains.
+    """
+    exact = staging / tag
+    if exact.is_dir():
+        return exact
+    candidates = [p for p in staging.iterdir() if p.is_dir()]
+    if len(candidates) == 1:
+        return candidates[0]
+    if len(candidates) > 1:
+        logger.warning(
+            "[ge_installer] ambiguous extracted layout for %s: %s",
+            tag, [c.name for c in candidates],
+        )
+    return None
+
+
+def _promote_extracted(staging: Path, tag: str) -> Path | None:
+    """Validate the extracted tree and move it into place.
+
+    The move into ``COMPAT_TOOLS_DIR`` only happens after the ``proton``
     script is confirmed present and made executable, returning the final
     executable ``proton`` path (or ``None`` if validation fails).
 
@@ -357,9 +386,9 @@ def _promote_extracted(staging: Path, tag: str) -> Path | None:
     repeats the check because a tool dir can also rot after install (or
     arrive from somewhere other than this installer).
     """
-    extracted = staging / tag
-    proton = extracted / "proton"
-    if not proton.is_file():
+    extracted = _find_extracted_root(staging, tag)
+    proton = extracted / "proton" if extracted else None
+    if not proton or not proton.is_file():
         logger.warning(
             "[ge_installer] extracted tree missing proton script (%s)", tag,
         )

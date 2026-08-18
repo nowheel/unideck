@@ -11,6 +11,7 @@ from unifideck.launcher.types.errors import (
 from unifideck.utils import vdf_compat
 
 from . import ge_installer
+from .container_escape import escape_argv
 
 logger = logging.getLogger(__name__)
 # Interpreters tried (in order) to run the umu zipapp. umu needs Python
@@ -30,18 +31,32 @@ PYTHON_CANDIDATES: list[str] = [
 ]
 ACCEPTED_VERSIONS = {"3.10", "3.11", "3.12", "3.13", "3.14"}
 def find_python_3_10_plus() -> Path:
-    """Find python 3 10 plus."""
+    """Find python 3 10 plus.
+
+    Probed through :func:`escape_argv`, the SAME hop ``run_umu_with_retry``
+    uses to spawn umu — so a candidate is accepted only if it also works
+    where it will actually run. When Steam's Force-Compat wraps this
+    process in pressure-vessel, ``is_file()`` alone sees the container's
+    view of ``/usr/bin``, which can contain a versioned interpreter (e.g.
+    the runtime's bundled ``python3.13``) that the host doesn't have. Under
+    the old direct-subprocess probe that candidate "passed" here and was
+    only discovered missing when umu tried to exec it on the escaped host,
+    failing both retries with rc=127 ("File o directory non esistente")
+    and killing the launch. Routing the probe itself through the escape
+    catches that mismatch instead of the retry loop.
+    """
     for candidate in PYTHON_CANDIDATES:
         path = Path(candidate)
         if not path.is_file():
             continue
+        probe = [
+            candidate,
+            "-c",
+            'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")',
+        ]
         try:
             out = subprocess.check_output(
-                [
-                    candidate,
-                    "-c",
-                    'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")',
-                ],
+                escape_argv(probe, env=None),
                 stderr=subprocess.DEVNULL,
                 timeout=5,
             )
