@@ -240,6 +240,14 @@ reaches one Steam Deck.
 
 ---
 
+## Second brain
+
+[`cervello/`](cervello/00%20Indice.md) is an [Obsidian](https://obsidian.md)-style
+vault of what building this cost to learn — atomic notes, wikilinked, each
+claim next to its proof (a log line, a measured number, a command run). Open
+the folder as an Obsidian vault, or just follow the links on GitHub starting
+from [`00 Indice.md`](cervello/00%20Indice.md).
+
 ## Credits
 
 **Unifideck is created and maintained by [@mubaraknumann](https://github.com/mubaraknumann).**
