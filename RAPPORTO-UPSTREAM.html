@@ -1,0 +1,249 @@
+<title>Unifideck Fork Report</title>
+<style>
+  :root {
+    --bg: #ffffff; --panel: #f7f5f2; --panel-2: #efece7;
+    --border: rgba(0,0,0,0.10); --border-strong: rgba(0,0,0,0.22);
+    --text: #1c1a17; --dim: #57514a; --faint: #857d73;
+    --accent: #b26a00; --accent-soft: #8a5200;
+    --bad: #a4322a; --good: #1f6d4a; --warn: #8a6100;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #14120f; --panel: #1d1a15; --panel-2: #241f19;
+      --border: rgba(255,255,255,0.10); --border-strong: rgba(255,255,255,0.20);
+      --text: #ece6da; --dim: #a8a094; --faint: #766f64;
+      --accent: #f0aa3c; --accent-soft: #ffd79b;
+      --bad: #e0736a; --good: #6cc79b; --warn: #e0b45e;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #14120f; --panel: #1d1a15; --panel-2: #241f19;
+    --border: rgba(255,255,255,0.10); --border-strong: rgba(255,255,255,0.20);
+    --text: #ece6da; --dim: #a8a094; --faint: #766f64;
+    --accent: #f0aa3c; --accent-soft: #ffd79b;
+    --bad: #e0736a; --good: #6cc79b; --warn: #e0b45e;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 16px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 40px 20px 80px;
+  }
+  .wrap { max-width: 820px; margin: 0 auto; }
+  .kicker {
+    font-family: var(--mono); font-size: 12px; letter-spacing: 0.2em;
+    text-transform: uppercase; color: var(--accent);
+    display: flex; align-items: center; gap: 10px; margin-bottom: 14px;
+  }
+  .kicker::before { content: ""; width: 24px; height: 1px; background: var(--accent); }
+  h1 { font-size: clamp(28px, 5vw, 40px); line-height: 1.15; margin: 0 0 14px; letter-spacing: -0.02em; }
+  .lede { font-size: 18px; color: var(--dim); margin: 0 0 10px; }
+  h2 {
+    font-size: 22px; margin: 52px 0 8px; padding-top: 22px;
+    border-top: 1px solid var(--border); letter-spacing: -0.01em;
+  }
+  h3 { font-size: 16.5px; margin: 30px 0 6px; }
+  p { margin: 0 0 14px; }
+  code {
+    font-family: var(--mono); font-size: 0.87em;
+    background: var(--panel-2); padding: 1px 5px; border-radius: 4px;
+  }
+  pre {
+    font-family: var(--mono); font-size: 12.5px; line-height: 1.55;
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 10px; padding: 14px 16px; overflow-x: auto; margin: 0 0 18px;
+  }
+  pre code { background: none; padding: 0; font-size: inherit; }
+  .card {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 12px; padding: 20px 22px; margin: 0 0 18px;
+  }
+  .card.sev { border-left: 3px solid var(--bad); }
+  .card.med { border-left: 3px solid var(--warn); }
+  .card.low { border-left: 3px solid var(--faint); }
+  .tag {
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.08em;
+    text-transform: uppercase; padding: 3px 8px; border-radius: 999px;
+    border: 1px solid var(--border-strong); color: var(--dim);
+    display: inline-block; margin-bottom: 10px;
+  }
+  .tag.sev { color: var(--bad); border-color: var(--bad); }
+  .tag.med { color: var(--warn); border-color: var(--warn); }
+  table { width: 100%; border-collapse: collapse; margin: 0 0 18px; font-size: 14.5px; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { font-family: var(--mono); font-size: 11.5px; letter-spacing: 0.06em;
+       text-transform: uppercase; color: var(--faint); font-weight: 600; }
+  td code { font-size: 12.5px; }
+  .scroll { overflow-x: auto; }
+  ul { margin: 0 0 14px; padding-left: 22px; }
+  li { margin-bottom: 7px; }
+  .note {
+    background: var(--panel-2); border: 1px solid var(--border);
+    border-left: 3px solid var(--accent); border-radius: 8px;
+    padding: 14px 18px; margin: 0 0 18px; font-size: 15px; color: var(--dim);
+  }
+  .note strong { color: var(--text); }
+  footer { margin-top: 60px; padding-top: 20px; border-top: 1px solid var(--border);
+           font-size: 13.5px; color: var(--faint); }
+</style>
+
+<div class="wrap">
+
+<div class="kicker">Fork report · Release-0.7.3</div>
+<h1>Changes in a local Unifideck fork</h1>
+<p class="lede">Everything this fork changes relative to <code>Release-0.7.3</code>, separated into defects that affect upstream and local work that does not.</p>
+
+<div class="note">
+<strong>What this is asking for.</strong> The four defects in the first section are upstream bugs, reproduced on-device with logs and fixes. They are offered as bug reports. The rest is a local product decision and is <em>not</em> proposed for merging — <code>CONTRIBUTING.md</code> asks for prior discussion and rejects sweeping changes, and this page's rewrite is built on top of a local architecture change that upstream does not share.
+</div>
+
+<h2>Environment</h2>
+<div class="scroll">
+<table>
+  <tr><th>Item</th><th>Value</th></tr>
+  <tr><td>Plugin</td><td>Unifideck <code>0.7.3</code>, Decky Loader <code>3.2.6</code></td></tr>
+  <tr><td>Device</td><td>Steam Deck, Gaming Mode (gamescope), CachyOS/SteamOS-like</td></tr>
+  <tr><td>Library</td><td>741 games — Epic 104, GOG 36, Microsoft (xCloud) 601</td></tr>
+  <tr><td>Steam UI</td><td>CSS viewport 854×534 at <code>devicePixelRatio</code> 1.5</td></tr>
+</table>
+</div>
+
+<h2>1 · Defects found upstream</h2>
+
+<div class="card sev">
+<span class="tag sev">Data loss · highest</span>
+<h3>A failed store fetch deletes that store's library and its Steam shortcuts</h3>
+
+<p><strong>What happened.</strong> A scheduled sync started while the Deck suspended. A socket does not age while the machine sleeps, so a request with <code>timeout=30</code> surfaced its failure 14,596 seconds later. That is the accident. The defect is what followed.</p>
+
+<pre><code>[MicrosoftCatalog] /v2/titles unexpected TimeoutError
+[MicrosoftCatalog] /v2/titles returned 0 titles in 14596.8s
+[MicrosoftCatalog] /v2/titles returned 0 titles          (WARNING)
+[SyncService] microsoft: 0 games
+[SyncService] Saved library cache (140 games) to library_cache.json
+[SyncService] sync complete — 140 games across 3 stores in 39282ms (0 errors)
+[ShortcutService] (added=0 removed=603 ...)</code></pre>
+
+<p><strong>Result:</strong> 603 Steam shortcuts deleted. Steam shortcuts went from 744 to 141. The run reported <code>0 errors</code> throughout, and the loss was noticed days later by accident.</p>
+
+<p><strong>Root cause, at two independent levels.</strong></p>
+<ul>
+  <li><code>microsoft_catalog._xcloud_titles_sync</code> returns <code>[]</code> on <em>every</em> error branch — HTTPError, URLError, generic exception, non-JSON. A broken fetch therefore arrives downstream as "this account owns no Xbox games", indistinguishable from an empty library. This is why the run counted zero errors.</li>
+  <li>Independently, in <code>core/sync_run_mixin.py</code> the per-store loop assigns <code>libraries[store.store_name] = games</code> unconditionally. The <code>errors</code> dict is collected but only used for reporting. So <em>even a correctly reported failure</em> still empties that store. <code>core/sync_service.py</code> does the same for single-store refresh.</li>
+</ul>
+
+<p><strong>Steps to reproduce</strong> — no suspend needed: make <code>_xcloud_titles_sync</code> raise (block <code>gssv-play-prod.xboxlive.com</code>, or drop the network mid-sync), run a sync, observe the store's games and shortcuts disappear while the log reports success.</p>
+
+<p><strong>Fix applied in this fork.</strong> The catalogue raises a dedicated <code>XCloudCatalogUnavailable</code> instead of returning empty, so a failure stays a failure. The sync loop carries the previous library forward for any store that failed — a failed store may cost freshness, never data. A third guard warns (does not block) when a <em>successful</em> fetch returns less than half of what a store had, floored at 10 games so small libraries do not cry wolf. 10 tests cover it, including the inverse case: a genuinely shrinking library must still be recorded.</p>
+</div>
+
+<div class="card med">
+<span class="tag med">Every boot · easy fix</span>
+<h3>The config schema rejects a section the plugin itself writes</h3>
+
+<p><code>steam/current_user.py</code> defines <code>CONFIG_ACTIVE_USER_KEY = "steam.active_user"</code> and both writes and reads it, explicitly supporting the nested form. The schema at <code>config/schema.json</code> has <code>additionalProperties: false</code> at the root and does not declare a <code>steam</code> section.</p>
+
+<p>The result is that the plugin invalidates its own config and starts in degraded mode on every boot for any user who has an active Steam account recorded:</p>
+
+<pre><code>[Unifideck] config validation FAILED — starting in degraded mode.
+1 error(s). First: : Additional properties are not allowed ('steam' was unexpected)</code></pre>
+
+<p>Validating the merged config (shipped defaults deep-merged with user overrides) gives <strong>1 error before, 0 after</strong> adding the section. The fix is 11 lines of JSON and nothing else.</p>
+</div>
+
+<div class="card low">
+<span class="tag">Latent · currently dead code</span>
+<h3><code>SteamBridge</code> calls a Steam API that no longer exists</h3>
+
+<p><code>SteamBridge.getAppOverview()</code> reads <code>window.SteamClient.Apps.GetAppOverview</code>. On current Steam that is <code>undefined</code> — verified over the CEF debugger against the live client. The method therefore returns <code>null</code> for every appid ever passed to it, and <code>isReady()</code>, which tests the same symbol, always returns <code>false</code>.</p>
+
+<p>Impact today is nil: the only consumer, <code>hooks/useSteamLibrary.ts</code>, is exported from the barrel but imported by nothing and is tree-shaken out of the bundle. It is reported because it is a working-looking API that silently answers "no" to everything.</p>
+
+<p>The live equivalent is <code>window.appStore.GetAppOverviewByAppID()</code>, which exists in <code>SharedJSContext</code>.</p>
+</div>
+
+<div class="card low">
+<span class="tag">Type drift · note only</span>
+<h3>The frontend <code>Game</code> interface does not match the backend dataclass</h3>
+
+<p><code>core/types/domain.py</code> has <code>store_game_id</code>, <code>installed</code>, <code>exe_path</code>, <code>tags</code>, and <strong>no</strong> <code>id</code>, <code>is_installed</code> or <code>cover_image</code>. The TS interface in <code>types/api.ts</code> declares the latter set. <code>adaptGame</code> in <code>hooks/useGameInfo.ts</code> bridges the two and its comment already documents the trap.</p>
+
+<p>Any code consuming raw <code>get_all_unifideck_games</code> rows reads <code>undefined</code> silently. In this fork that shipped as three separate bugs before the type was corrected: an always-empty "Installed" filter, a grid of React children keyed <code>undefined</code>, and playtime lookups that never matched.</p>
+
+<p>Flagged as a note rather than a patch: correcting the type surfaced five call sites and touching them all is exactly the kind of sweeping change <code>CONTRIBUTING.md</code> asks contributors not to make unsolicited.</p>
+</div>
+
+<h2>2 · Steam integration facts worth documenting</h2>
+
+<p>These are not bugs — they are behaviours of current Steam that cost real time to discover, and that any code touching shortcuts will meet.</p>
+
+<div class="scroll">
+<table>
+  <tr><th>Area</th><th>Finding</th></tr>
+  <tr>
+    <td>Shortcut AppIDs</td>
+    <td>They exist in two 32-bit readings. The backend and <code>games.map</code> use the <strong>signed</strong> form (<code>-310337468</code>); Steam's app store and its routes use the <strong>unsigned</strong> one (<code>3984629828</code>). Mixing them fails silently: <code>GetAppOverviewByAppID(signed)</code> returns <code>null</code>, and <code>Navigate("/library/app/&lt;signed&gt;")</code> matches no route and quietly lands the user on the library home page.</td>
+  </tr>
+  <tr>
+    <td>Cover art</td>
+    <td>For non-Steam shortcuts, only <code>appStore.GetCustomVerticalCapsuleURLs(overview)[0]</code> — the <code>.jpg</code> — actually loads. The <code>.png</code> sibling, both <code>/assets/…library_600x900.jpg</code> forms from <code>GetCachedVerticalCapsuleURL</code>, and the CDN URL from <code>GetVerticalCapsuleURLForApp</code> all 404. Probed across five shortcuts.</td>
+  </tr>
+  <tr>
+    <td>appStore methods</td>
+    <td>They are prototype methods that reach through <code>this</code> (<code>GetCustomVerticalCapsuleURLs</code> calls <code>this.GetCustomImageURLs</code>). Calling a detached reference throws <code>TypeError</code>, which a broad <code>catch</code> turns into "this game has no artwork". Call with the receiver.</td>
+  </tr>
+  <tr>
+    <td>Gamepad focus</td>
+    <td><strong>Steam does not move DOM focus when navigating with the pad.</strong> It marks the focused element with its own <code>gpfocus</code> class and <code>gpfocuswithin</code> on ancestors. <code>:focus</code> never matches during controller navigation, so any highlight keyed on it — or on React <code>onFocus</code> — stays invisible. Verify with <code>document.querySelectorAll(".gpfocus")</code>; a programmatic <code>.focus()</code> proves nothing about the pad.</td>
+  </tr>
+  <tr>
+    <td>Realms</td>
+    <td>Plugin JS runs in <code>SharedJSContext</code>, which has <code>appStore</code> and <code>SteamUIStore</code>; the rendered DOM lives in the Big Picture window, whose realm has neither. Inspecting the wrong one yields confident false conclusions.</td>
+  </tr>
+  <tr>
+    <td>Viewport</td>
+    <td>Gaming Mode renders at <code>devicePixelRatio</code> 1.5, so a 1280×800 panel is an <strong>854×534 CSS viewport</strong>. Steam then draws its status bar (~38px) and button legend (~35px) over the route.</td>
+  </tr>
+  <tr>
+    <td>Analog triggers</td>
+    <td><code>TRIGGER_LEFT</code>/<code>TRIGGER_RIGHT</code> <em>are</em> delivered to <code>onButtonDown</code>. Nothing in the plugin bound them, so this was unverified; instrumenting on-device recorded 12 <code>R2</code> and 5 <code>L2</code> presses.</td>
+  </tr>
+</table>
+</div>
+
+<h2>3 · Local changes, not proposed for merging</h2>
+
+<p>Two layers sit on top of upstream here. Neither is offered as a contribution; they are listed so the diff is fully accounted for.</p>
+
+<h3>Pre-existing on this device</h3>
+<p>Before any of the work above, this install had already replaced the <code>/library</code> tab injection with a standalone route. Five files: <code>src/index.tsx</code> (registers <code>/unifideck</code> instead of calling <code>applyLibraryPatch</code>, and does not start the collection manager), <code>src/teardown.ts</code>, <code>src/views/QuickAccessPanel.tsx</code> (adds a Library button), plus new <code>src/views/UnifideckPage.tsx</code> and <code>src/lib/routes.ts</code>. Steam's own library UI is left untouched by this arrangement.</p>
+
+<h3>Added in this fork</h3>
+<p>The standalone page was rebuilt because it reused components written for an injected tab and did not survive a 741-game library at full screen: every game mounted at once (741 tiles and 741 cover images in one commit), a native <code>&lt;select&gt;</code> and <code>&lt;input&gt;</code> that gamepad focus cannot reach, filters switching on <code>onFocus</code>, and a full re-filter and re-sort on every keystroke.</p>
+
+<div class="scroll">
+<table>
+  <tr><th>Area</th><th>Files</th><th>Lines</th></tr>
+  <tr><td>Catalogue page rewrite</td><td><code>src/views/unifideck-page/</code> + <code>UnifideckPage.tsx</code></td><td>~2 700</td></tr>
+  <tr><td>Shared helpers</td><td><code>lib/appid.ts</code>, <code>lib/game-identity.ts</code></td><td>~130</td></tr>
+  <tr><td>Upstream fixes</td><td><code>SteamBridge.ts</code>, <code>types/api.ts</code> + 4 call sites</td><td>~130</td></tr>
+  <tr><td>Backend fixes</td><td><code>sync_run_mixin.py</code>, <code>sync_service.py</code>, <code>microsoft_catalog.py</code>, <code>schema.json</code></td><td>~150</td></tr>
+  <tr><td>Tests</td><td>frontend suites + <code>test_sync_failed_store_keeps_library.py</code></td><td>~920</td></tr>
+</table>
+</div>
+
+<p>One incidental find: three permanently-failing tests in <code>collection-manager.test.ts</code> were not broken code — the jsdom build in use here has no <code>window.localStorage</code>. A small polyfill in a vitest setup file turns all three green. Whether they also fail in upstream CI is unknown, so this is mentioned rather than reported.</p>
+
+<h2>4 · Suggested order</h2>
+<ul>
+  <li><strong>The sync data loss first.</strong> It is silent, destructive, and reachable by anyone who suspends the Deck at the wrong moment. The two-level fix is small and covered by tests.</li>
+  <li><strong>Then the schema section.</strong> Eleven lines, and it stops every affected install from booting degraded.</li>
+  <li><strong>Then the dead Steam API</strong>, whenever convenient — harmless today, misleading whenever someone next relies on it.</li>
+</ul>
+
+<footer>
+Reported against Unifideck <code>Release-0.7.3</code>. Every log line, count and measurement above was taken from a live install, not inferred. Patches for the first two items exist and are running in production on that device; they are available on request rather than as an unsolicited PR, per <code>CONTRIBUTING.md</code>.
+</footer>
+
+</div>
