@@ -18,7 +18,7 @@
  * filter bar switched tabs from `onFocus`, so merely passing over a
  * segment with the stick re-filtered and re-rendered the whole grid.
  */
-import { FC, ReactNode, useState } from "react";
+import { FC, ReactNode } from "react";
 import { Focusable, TextField } from "@decky/ui";
 import { StoreIcon } from "../../components/shared/StoreIcon";
 import {
@@ -39,16 +39,13 @@ const Chip: FC<{
   active: boolean;
   onActivate: () => void;
   children: ReactNode;
-}> = ({ active, onActivate, children }) => {
-  const [focused, setFocused] = useState(false);
-  return (
+}> = ({ active, onActivate, children }) => (
     <Focusable
       noFocusRing
       onActivate={onActivate}
-      onFocus={() => setFocused(true)}
-      onBlur={() => setFocused(false)}
+      data-udk="chip"
       style={{
-        ...chipStyle(active, focused),
+        ...chipStyle(active),
         display: "inline-flex",
         alignItems: "center",
         gap: 6,
@@ -57,7 +54,6 @@ const Chip: FC<{
       {children}
     </Focusable>
   );
-};
 
 /** A count rendered inside a chip, dimmed against the label. */
 const Count: FC<{ value: number; active: boolean }> = ({ value, active }) => (

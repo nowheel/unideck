@@ -134,6 +134,64 @@ export function glass(tint: string, blurPx = 16): CSSProperties {
   } as CSSProperties;
 }
 
+/**
+ * Focus styling, as a stylesheet rather than as React state.
+ *
+ * Chips and tiles originally tracked focus with `onFocus`/`onBlur`
+ * feeding component state, and nothing ever lit up: navigation worked,
+ * the highlight was invisible.
+ *
+ * The first diagnosis was that focus events never fire on this device,
+ * because probing showed `document.activeElement` moving while no
+ * `focusin` arrived. **That was wrong, and wrong for an instructive
+ * reason**: the probe drove a window the system did not consider
+ * active, so `document.hasFocus()` was `false`. A document without
+ * focus neither dispatches those events nor matches `:focus`. Enabling
+ * CDP focus emulation — the state the Deck is actually in when someone
+ * is using it — shows both working normally.
+ *
+ * So the events were fine and the original approach would have worked.
+ * CSS is kept anyway, on merit: it reads the document's focus state
+ * directly, needs no listener, and spares 42 tiles a state update every
+ * time the stick moves one square.
+ *
+ * Two implementation notes:
+ *
+ *   - hooks in via `data-udk`, not `className`: Steam sets its own
+ *     `Panel Focusable` classes on these elements and expects them, so
+ *     an attribute is the safe place to hang a selector;
+ *   - `!important` is required, not sloppiness. Every element here
+ *     carries inline styles, which otherwise win over any stylesheet
+ *     rule regardless of specificity.
+ *
+ * Verified on-device with focus emulation on: a focused tile reports
+ * `outline: 2px solid`, an amber border, and the lift transform.
+ */
+export const FOCUS_CSS = `
+[data-udk]:focus {
+  outline: 2px solid ${C.amberSoft} !important;
+  outline-offset: 2px !important;
+}
+[data-udk="tile"]:focus {
+  background: ${C.panel2} !important;
+  border-color: ${C.amber} !important;
+  transform: translateY(-3px) !important;
+  box-shadow: 0 14px 30px -12px rgba(0,0,0,0.7),
+              0 0 0 1px ${C.amberGlow} !important;
+}
+[data-udk="tile"]:focus [data-udk-title] {
+  color: ${C.text} !important;
+}
+[data-udk="chip"]:focus {
+  border-color: ${C.amberSoft} !important;
+}
+[data-udk="btn"]:focus {
+  background: ${C.amber} !important;
+  border-color: ${C.amber} !important;
+  color: ${C.onAmber} !important;
+}
+`;
+
 /** Translucent ground for the header bar. */
 export const GLASS_HEADER = "rgba(23,19,13,0.72)";
 /** Translucent ground for the footer bar; denser, it sits over tiles. */
@@ -166,15 +224,14 @@ export function badgeStyle(color: string): CSSProperties {
 }
 
 /**
- * rackdroid's `.mod-chip`. `active` fills solid amber; `focused` is the
- * translation of the site's `:hover` — amber outline plus the glow that
- * `.btn-primary:hover` gets, so the gamepad's position is unmistakable
- * even against an already-active chip.
+ * rackdroid's `.mod-chip`. `active` fills solid amber.
+ *
+ * The focused appearance is not here: it lives in `FOCUS_CSS`, so that
+ * an active chip and a focused one stay independently readable — the
+ * outline shows where the stick is even when the chip underneath is
+ * already filled.
  */
-export function chipStyle(
-  active: boolean,
-  focused: boolean,
-): CSSProperties {
+export function chipStyle(active: boolean): CSSProperties {
   return {
     fontFamily: MONO,
     fontSize: 11,
@@ -186,8 +243,7 @@ export function chipStyle(
     transition: "background 0.15s ease, border-color 0.15s ease, color 0.15s ease",
     fontWeight: active ? 600 : 400,
     background: active ? C.amber : C.panel2,
-    color: active ? C.onAmber : focused ? C.amberSoft : C.textDim,
-    border: `1px solid ${active ? C.amber : focused ? C.amberSoft : C.borderStrong}`,
-    boxShadow: focused ? `0 0 0 1px ${C.amberGlow}` : "none",
+    color: active ? C.onAmber : C.textDim,
+    border: `1px solid ${active ? C.amber : C.borderStrong}`,
   };
 }

@@ -64,7 +64,6 @@ const GameTileInner: FC<Props> = ({
   installedLabel,
   deckLabel,
 }) => {
-  const [focused, setFocused] = useState(false);
   // Index into `covers`. Steam hands back several candidate URLs and
   // only one of them is real for any given app, so a load error means
   // "try the next", not "give up" — advancing here is what turns the
@@ -103,11 +102,13 @@ const GameTileInner: FC<Props> = ({
   return (
     <Focusable
       onActivate={() => onSelect(game)}
-      onFocus={() => setFocused(true)}
-      onBlur={() => setFocused(false)}
+      // Hook for the `:focus` rules in `FOCUS_CSS`. The React focus
+      // props these once used never fired on this device, so the
+      // highlight lived only in theory.
+      data-udk="tile"
       // Steam draws its own focus ring as a hard white rectangle, which
       // fights the rounded amber panel. The tile supplies the entire
-      // focus affordance itself.
+      // focus affordance itself, from `FOCUS_CSS`.
       noFocusRing
       style={{
         position: "relative",
@@ -117,12 +118,10 @@ const GameTileInner: FC<Props> = ({
         padding: 8,
         borderRadius: 14,
         cursor: "pointer",
-        background: focused ? C.panel2 : C.panel,
-        border: `1px solid ${focused ? C.amber : C.border}`,
-        boxShadow: focused
-          ? `0 14px 30px -12px rgba(0,0,0,0.7), 0 0 0 1px ${C.amberGlow}`
-          : "none",
-        transform: focused ? "translateY(-3px)" : "none",
+        background: C.panel,
+        border: `1px solid ${C.border}`,
+        boxShadow: "none",
+        transform: "none",
         transition:
           "transform 0.18s ease, border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease",
       }}
@@ -201,12 +200,13 @@ const GameTileInner: FC<Props> = ({
           style={{
             fontSize: 12.5,
             lineHeight: 1.25,
-            color: focused ? C.text : C.textDim,
+            color: C.textDim,
             whiteSpace: "nowrap",
             overflow: "hidden",
             textOverflow: "ellipsis",
             transition: "color 0.18s ease",
           }}
+          data-udk-title=""
           title={game.title}
         >
           {game.title}

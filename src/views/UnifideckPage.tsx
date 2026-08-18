@@ -47,7 +47,7 @@ import { rpcRoutes } from "../api/rpc-routes";
 import { CatalogueGrid, PAGE_SIZE } from "./unifideck-page/CatalogueGrid";
 import { FilterRail, type StoreOption } from "./unifideck-page/FilterRail";
 import { PageBar } from "./unifideck-page/PageBar";
-import { C, MONO } from "./unifideck-page/theme";
+import { C, FOCUS_CSS, MONO } from "./unifideck-page/theme";
 import { clearCoverCache } from "./unifideck-page/cover";
 import { toSteamAppId } from "./unifideck-page/appid";
 import {
@@ -188,25 +188,22 @@ const UnifideckPageInner: FC = () => {
    *
    * The hard part is guaranteeing it comes *back*, because with a stick
    * focus is the cursor: hide the thing focus needs to reach and the
-   * filters become unreachable. The obvious guard is to pin the rail
-   * open while focus is inside it, and that is what this first did.
+   * filters become unreachable.
    *
-   * It is not used, because it could not be verified. Driving focus
-   * from outside showed `document.activeElement` moving into the rail
-   * while **no `focusin` event fired at all** — not on the rail, not on
-   * `document`. React renders into the Big Picture document from a
-   * different realm, so its delegated listeners may well still see
-   * those events; the point is that nothing available here can prove
-   * it, and a safety property that cannot be tested is not one.
+   * Scroll direction carries that guarantee: any upward scroll brings
+   * the rail back. Steam scrolls a newly focused element into view, so
+   * moving focus up from the top row scrolls the container up, which
+   * reveals the rail. `onFocusWithin` is wired as a second trigger, so
+   * the rail also pins itself open while the stick is inside it.
    *
-   * Scroll direction can be tested, so the guarantee rests on that
-   * instead: any upward scroll brings the rail back. Steam scrolls a
-   * newly focused element into view, so moving focus up from the top
-   * row scrolls the container up, which reveals the rail — the same
-   * outcome, reached through a path that can be checked. `onFocusWithin`
-   * is still wired as a second, redundant trigger: if those events do
-   * arrive, the rail returns a frame sooner and nothing is worse if
-   * they never do.
+   * A note for whoever reads this next: an earlier version of this
+   * comment claimed the focus path "could not be verified" because no
+   * `focusin` ever fired. That was wrong. The probe was driving a
+   * window the system did not consider active, so `document.hasFocus()`
+   * was false — and an unfocused document dispatches no focus events.
+   * With CDP focus emulation on, they fire normally. Both triggers work;
+   * scroll direction is simply the one that also handles the case where
+   * the user scrolls with the stick without moving focus at all.
    */
   const [railHiddenByScroll, setRailHiddenByScroll] = useState(false);
   const [railFocused, setRailFocused] = useState(false);
@@ -508,6 +505,10 @@ const Shell: FC<{
       color: C.text,
     }}
   >
+    {/* Focus highlighting lives in CSS, not in component state — see
+        the note on FOCUS_CSS. Mounted with the page so it comes and
+        goes with the route rather than leaking into the rest of Steam. */}
+    <style>{FOCUS_CSS}</style>
     {children}
   </Focusable>
 );
@@ -516,14 +517,11 @@ const Shell: FC<{
 const RetryButton: FC<{ label: string; onRetry: () => void }> = ({
   label,
   onRetry,
-}) => {
-  const [focused, setFocused] = useState(false);
-  return (
+}) => (
     <Focusable
       noFocusRing
       onActivate={() => void onRetry()}
-      onFocus={() => setFocused(true)}
-      onBlur={() => setFocused(false)}
+      data-udk="btn"
       style={{
         display: "inline-block",
         fontFamily: MONO,
@@ -532,15 +530,14 @@ const RetryButton: FC<{ label: string; onRetry: () => void }> = ({
         padding: "10px 22px",
         borderRadius: 12,
         cursor: "pointer",
-        background: focused ? C.amber : "transparent",
-        color: focused ? C.onAmber : C.text,
-        border: `1px solid ${focused ? C.amber : C.borderStrong}`,
+        background: "transparent",
+        color: C.text,
+        border: `1px solid ${C.borderStrong}`,
       }}
     >
       {label}
     </Focusable>
   );
-};
 
 /**
  * Route component. `RootProvider` must wrap the page here rather than

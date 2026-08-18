@@ -237,11 +237,36 @@ Da lì `STEAM_TOP_INSET` / `STEAM_BOTTOM_INSET`.
 
 ---
 
+## Il focus, e una misura che mi ha ingannato due volte
+
+Sondando da CDP sembrava che il focus programmatico **non generasse
+eventi**: `activeElement` cambiava e nessun `focusin` scattava. Ci ho
+costruito sopra due decisioni, e la conclusione era **falsa**.
+
+La causa: il debugger pilota una finestra che il sistema non considera
+attiva, quindi `document.hasFocus()` è `false`. Un documento senza
+focus non emette eventi di focus **e non combacia con `:focus`**. Con
+`Emulation.setFocusEmulationEnabled` — cioè nello stato in cui si trova
+la Deck quando qualcuno la sta usando — funziona tutto normalmente.
+
+Da cui due regole per chi indaga qui dentro:
+
+- **abilitare sempre l'emulazione del focus** prima di misurare
+  qualunque cosa lo riguardi, altrimenti si misura un artefatto;
+- attenzione alle **transizioni**: le tile hanno `transition: 0.18s`, e
+  leggere lo stile subito dopo `.focus()` restituisce valori a metà
+  strada. Una prima lettura dava `border-top-color` a
+  `rgba(252,213,143,0.157)` e faceva sembrare che la regola non si
+  applicasse; mezzo secondo dopo era `rgb(249,177,48)`, cioè esatta.
+
+L'evidenziazione del focus vive ora in `FOCUS_CSS` (`theme.ts`), non
+nello stato React. Non perché gli eventi non funzionino — funzionano —
+ma perché il CSS legge lo stato del documento senza ascoltatori e
+risparmia a 42 tile un aggiornamento di stato a ogni movimento dello
+stick.
+
 ## Rimasto da verificare
 
-Il movimento del focus col pad fra i chip e la griglia, e il ritorno
-della barra dei filtri quando si è ritirata. Il focus programmatico da
-CDP **non genera eventi** (`activeElement` cambia, nessun `focusin`
-scatta), quindi non è simulabile da qui. Per questo la barra torna in
-base alla **direzione dello scorrimento**, che è verificabile, e non in
-base al focus.
+Il comportamento reale col pad in mano: la sensazione della
+navigazione fra chip e griglia, e il ritorno della barra dei filtri
+quando si è ritirata.
