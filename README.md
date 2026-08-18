@@ -1,6 +1,6 @@
 # unideck
 
-**A private fork of [Unifideck](https://github.com/mubaraknumann/unifideck) by [@mubaraknumann](https://github.com/mubaraknumann).**
+**A fork of [Unifideck](https://github.com/mubaraknumann/unifideck) by [@mubaraknumann](https://github.com/mubaraknumann).**
 
 Unifideck brings games from Epic, GOG, Amazon, Ubisoft and Xbox Cloud Gaming into
 Steam on the Steam Deck. All of that — the store integrations, the launcher, the
@@ -10,8 +10,9 @@ doing so.
 
 > **This is not the official project.** If you are looking for Unifideck, go to
 > [mubaraknumann/unifideck](https://github.com/mubaraknumann/unifideck). Install
-> that one. This fork exists for one Deck, tracks upstream `Release-0.7.3`, and
-> is not a distribution.
+> that one. This fork tracks upstream `Release-0.7.3`, was built for a single
+> Steam Deck, and is published so the fixes and findings are readable — not as
+> a distribution to install in place of Unifideck.
 >
 > **Bugs in Unifideck itself belong
 > [upstream](https://github.com/mubaraknumann/unifideck/issues), not here.**
