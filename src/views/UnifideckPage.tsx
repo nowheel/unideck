@@ -49,7 +49,7 @@ import { FilterRail, type StoreOption } from "./unifideck-page/FilterRail";
 import { PageBar } from "./unifideck-page/PageBar";
 import { C, FOCUS_CSS, MONO } from "./unifideck-page/theme";
 import { clearCoverCache } from "./unifideck-page/cover";
-import { toSteamAppId } from "./unifideck-page/appid";
+import { toSteamAppId } from "../lib/appid";
 import {
   availableSorts,
   compatFor,

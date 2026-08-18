@@ -10,6 +10,7 @@
  * the rules, and seeing that the rules ran on every keystroke over the
  * full library. Both are addressed by moving them out.
  */
+import { gameId } from "../../lib/game-identity";
 import { getCompatByShortcutAppId } from "../../lib/library-facets";
 import {
   getCachedCompatByTitle,
@@ -59,33 +60,9 @@ export interface CatalogueQuery {
  */
 export type PlaytimeIndex = Map<string, PlaytimeEntry>;
 
-/**
- * A game's store-native id.
- *
- * The backend `Game` dataclass has no `id` field at all — it carries
- * `store_game_id`. The frontend `Game` interface predates the
- * unified-types refactor and still declares `id`, which only exists on
- * rows that have been through `adaptGame` (see `hooks/useGameInfo.ts`,
- * where the same `store_game_id ?? id` rule is applied and the same
- * trap is documented). This page reads raw RPC rows, so `game.id` is
- * `undefined` for every one of them.
- *
- * Reading it unguarded is not harmless: it silently produced 42 React
- * children keyed `undefined`, and every playtime lookup missing.
- */
-export function gameId(game: Game): string {
-  return game.store_game_id ?? game.id ?? "";
-}
-
-/**
- * Stable React key.
- *
- * Store-qualified because two storefronts can and do use the same
- * native id for different titles.
- */
-export function gameKey(game: Game): string {
-  return `${game.store}:${gameId(game)}`;
-}
+// Identity resolution lives in `lib/game-identity.ts` — three layers
+// need it now, and a second copy is how the rule drifts.
+export { gameId, gameKey } from "../../lib/game-identity";
 
 /** Key under which a game's playtime is indexed. */
 export function playtimeKey(store: string, id: string): string {

@@ -21,6 +21,7 @@ import { useGameInfo } from "../../hooks/useGameInfo";
 import { useGameActions } from "../../hooks/useGameActions";
 import { useGameUpdate } from "../../hooks/useGameUpdate";
 import { useToast } from "../../hooks/useToast";
+import { gameId as resolveGameId } from "../../lib/game-identity";
 import { SteamBridge } from "../../lib/steam-bridge";
 import { openNativeAppManageMenu } from "../../utils/nativeAppMenu";
 import { UninstallConfirmModal } from "../modals/UninstallConfirmModal";
@@ -95,7 +96,9 @@ export const InstalledButtons: FC<Props> = ({
   const toast = useToast();
   const [isRunning, setIsRunning] = useState(false);
   const gameStore = game?.store;
-  const gameId = game?.id;
+  // Canonical resolution: raw rows carry `store_game_id`, adapted ones
+  // carry `id`. See `lib/game-identity.ts`.
+  const gameId = game ? resolveGameId(game) : undefined;
   // Read-only view of the backend sweep's result — already in memory, so
   // this costs nothing and cannot delay the button the way the old
   // inline `check_game_update` scan did (5-10 s for Epic, because
@@ -264,7 +267,7 @@ export const InstalledButtons: FC<Props> = ({
         {game && (
           <CloudSaveButton
             store={game.store}
-            gameId={game.id}
+            gameId={resolveGameId(game)}
             gameTitle={game.title}
           />
         )}

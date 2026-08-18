@@ -19,6 +19,7 @@
  */
 import { useMemo } from "react";
 import { useGameInfo } from "./useGameInfo";
+import { gameId } from "../lib/game-identity";
 import { useDownloads } from "../contexts/DownloadContext";
 import type { DownloadItem } from "../types/downloads";
 
@@ -64,14 +65,19 @@ export function usePlaySection(appId: number | null): PlaySectionState {
     // state regardless of is_installed; the launcher routes the xcloud
     // games.map sentinel to the Edge kiosk streaming flow.
     if (game.store_tags?.includes("xcloud")) {
-      return { kind: "xcloud", shouldOverride: true, appId, gameId: game.id };
+      return {
+        kind: "xcloud",
+        shouldOverride: true,
+        appId,
+        gameId: gameId(game),
+      };
     }
 
     // Check the live queue first — a download in progress
     // takes precedence over `is_installed` flag staleness.
     const inQueue =
-      findInQueue(downloads.queue?.current, game.id) ??
-      downloads.queue?.queued.find((d) => d.game_id === game.id) ??
+      findInQueue(downloads.queue?.current, gameId(game)) ??
+      downloads.queue?.queued.find((d) => d.game_id === gameId(game)) ??
       null;
     if (inQueue) {
       return { kind: "downloading", shouldOverride: true, download: inQueue };

@@ -52,31 +52,72 @@ export interface GameMetadata {
   cloud_saves?: boolean | null;
 }
 
-/** Universal `Game` representation aggregated from any store. */
+/**
+ * Universal `Game` representation aggregated from any store.
+ *
+ * ⚠ This interface predates the unified-types refactor and does **not**
+ * match the backend dataclass field for field. Two shapes reach it:
+ *
+ *   - **raw wire rows**, straight off `get_all_unifideck_games`. These
+ *     mirror `core/types/domain.py`: `store_game_id`, `installed`,
+ *     `exe_path`, `tags`. They carry **no `id`, no `is_installed`, no
+ *     `cover_image`** — those three simply do not exist on the backend
+ *     dataclass;
+ *   - **adapted rows**, produced by `adaptGame` in `hooks/useGameInfo.ts`,
+ *     which renames the above into the older frontend names.
+ *
+ * Reading an adapted-only field on a raw row is silent, not loud: it
+ * yields `undefined`, and has already shipped as three separate bugs —
+ * an always-empty "Installed" filter, a grid of tiles keyed `undefined`,
+ * and playtime lookups that never matched.
+ *
+ * The fields below are annotated with which shape provides them. When
+ * consuming raw rows, prefer the helpers in
+ * `views/unifideck-page/catalogue.ts` (`gameId`, `gameKey`,
+ * `isInstalled`) over reading these directly.
+ */
 export interface Game {
-  id: string;
+  /** ADAPTED ONLY. Absent on raw rows — use `store_game_id`. */
+  id?: string;
+  /** BOTH. The store-native id; the field the backend actually sends. */
   store_game_id: string;
+  /** BOTH. */
   title: string;
+  /** BOTH. */
   store: StoreId;
-  /** Adapter-normalised install flag (set by ``adaptGame`` on the
-   *  app-details path). NOTE: raw rows straight off
-   *  ``get_all_unifideck_games`` do NOT carry this — they carry
-   *  ``installed`` (the wire field, below). Read ``installed ?? is_installed``
-   *  when consuming un-adapted rows. */
-  is_installed: boolean;
-  /** Raw wire field from ``asdict(Game)`` (backend ``Game.installed``).
-   *  Present on un-adapted RPC rows; ``adaptGame`` folds it into
-   *  ``is_installed``. */
+  /** ADAPTED ONLY. Raw rows carry `installed` instead. */
+  is_installed?: boolean;
+  /** RAW. Backend `Game.installed`; `adaptGame` folds it into
+   *  `is_installed`. Read `installed ?? is_installed`. */
   installed?: boolean;
+  /** ADAPTED ONLY, and rarely set even then: only the Ubisoft manifest
+   *  path populates it. For raw rows the artwork lives in Steam's grid
+   *  store — see `views/unifideck-page/cover.ts`. */
   cover_image?: string;
+  /** BOTH. */
   install_path?: string;
+  /** ADAPTED ONLY. Raw rows carry `exe_path`. */
   executable?: string;
+  /** RAW. Backend `Game.exe_path`. */
+  exe_path?: string;
+  /** BOTH. Shortcut AppID, in the **signed** 32-bit reading. Steam's
+   *  own APIs want the unsigned one — convert via `lib/appid.ts`. */
   app_id?: number;
   steam_app_id?: number;
   ownership_type?: OwnershipType;
+  /** ADAPTED ONLY. Raw rows carry `tags`. */
   store_tags?: GameTag[];
+  /** RAW. Backend `Game.tags`. */
+  tags?: string[];
+  /** BOTH. Zero until the game is installed. */
   size_bytes?: number;
   deck_rating?: DeckRating;
+  /** RAW. Artwork URLs from the store; null for every row in practice. */
+  icon_url?: string | null;
+  hero_url?: string | null;
+  logo_url?: string | null;
+  /** RAW. Store-specific extras; usually empty. */
+  metadata?: Record<string, unknown>;
 }
 
 /** One achievement (definition + this user's unlock status). */

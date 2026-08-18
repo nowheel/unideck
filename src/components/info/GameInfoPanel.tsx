@@ -18,6 +18,7 @@
  * toggle is set to `compact`, the panel returns null entirely
  * (matches staging's "simple" semantics).
  */
+import { gameId } from "../../lib/game-identity";
 import { FC, useState } from "react";
 import { Focusable } from "@decky/ui";
 import { useGameInfo } from "../../hooks/useGameInfo";
@@ -91,7 +92,7 @@ export const GameInfoPanel: FC<Props> = ({ appId }) => {
         {game.store === "gog" && (
           <GameAchievementsSummary
             store={game.store}
-            gameId={game.id}
+            gameId={gameId(game)}
             title={game.title}
           />
         )}

@@ -14,6 +14,7 @@
  * Live progress comes from the {@link useDownloads} queue snapshot
  * — no per-second polling.
  */
+import { gameId } from "../../lib/game-identity";
 import { FC, useCallback, useMemo } from "react";
 import { DialogButton, Focusable, showModal } from "@decky/ui";
 import { useTranslation } from "react-i18next";
@@ -114,7 +115,7 @@ export const GameInfoCompatRow: FC<Props> = ({
     showModal(
       <GameAchievementsModal
         store={game.store}
-        gameId={game.id}
+        gameId={gameId(game)}
         title={game.title}
         closeModal={() => {}}
       />,

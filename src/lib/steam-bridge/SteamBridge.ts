@@ -10,6 +10,7 @@
  * Singleton instance; instantiated by the plugin entry and
  * passed via React context to consumers.
  */
+import { appIdForms } from "../appid";
 import { findInReactTree, type ReactTreeMatcher } from "./react-tree";
 import {
   getAppDetailsClasses,
@@ -51,22 +52,53 @@ type GameActionCallback = (
  *  - logs and degrades gracefully when an internal symbol
  *    has been renamed or removed.
  */
+/** Steam's live app store. Present in `SharedJSContext`, which is where
+ *  plugin code runs; absent in the Big Picture window's realm. */
+function appStore():
+  | { GetAppOverviewByAppID?: (appId: number) => unknown }
+  | undefined {
+  return (
+    window as unknown as {
+      appStore?: { GetAppOverviewByAppID?: (appId: number) => unknown };
+    }
+  ).appStore;
+}
+
 export class SteamBridge {
-  /** True once at least one SteamClient method has been seen.
-   *  Used by the plugin to delay UI mount until Steam is ready. */
+  /** True once Steam's app store is populated and can answer lookups.
+   *
+   *  This used to test `SteamClient.Apps.GetAppOverview`, which **does
+   *  not exist on current Steam** — verified over CDP against the live
+   *  client, where `typeof` is `"undefined"`. The check therefore
+   *  always returned `false`, and so did every readiness gate built on
+   *  it. `window.appStore` is the object that actually exists. */
   isReady(): boolean {
-    return typeof window.SteamClient?.Apps?.GetAppOverview === "function";
+    return typeof appStore()?.GetAppOverviewByAppID === "function";
   }
 
   /** Look up an `AppOverview` for any Steam appid (real game
    *  or non-Steam shortcut). Returns null if Steam can't find
-   *  the appid; never throws. */
+   *  the appid; never throws.
+   *
+   *  Reads `window.appStore`, not `SteamClient.Apps` — see `isReady`.
+   *  The old path returned `null` for every appid ever passed to it.
+   *
+   *  Shortcut AppIDs arrive here in either 32-bit reading: the backend
+   *  and `games.map` use the signed form, Steam's store is keyed on the
+   *  unsigned one. Looking one up in the other's form misses silently,
+   *  so both are tried — see `lib/appid.ts`. */
   getAppOverview(appId: number): SteamAppOverview | null {
-    try {
-      return window.SteamClient?.Apps?.GetAppOverview(appId) ?? null;
-    } catch {
-      return null;
+    const store = appStore();
+    if (!store?.GetAppOverviewByAppID) return null;
+    for (const form of appIdForms(appId)) {
+      try {
+        const overview = store.GetAppOverviewByAppID.call(store, form);
+        if (overview) return overview as SteamAppOverview;
+      } catch {
+        // A renamed internal costs this lookup, not the caller.
+      }
     }
+    return null;
   }
 
   /** Subscribe to "app started / app stopped" notifications.

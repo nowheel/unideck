@@ -36,7 +36,7 @@
  * *do* work for real Steam entries — the tile walks the list on error
  * rather than trusting any single one.
  */
-import { appIdForms } from "./appid";
+import { appIdForms } from "../../lib/appid";
 import type { Game } from "../../types/api";
 
 /** The slice of `window.appStore` this module needs. */
