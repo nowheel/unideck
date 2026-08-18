@@ -201,6 +201,45 @@ Usare `gameId()` / `gameKey()` / `isInstalled()` da `catalogue.ts`.
 
 ---
 
+## Controllo di salute
+
+```bash
+./controlla.sh          # secondi
+./controlla.sh --test   # include le due suite
+```
+
+Confronta repo e installazione file per file, legge il log del plugin,
+conta giochi, shortcut e voci di registro, e li **confronta con
+l'ultimo controllo** (`.ultimo-stato`, non versionato).
+
+Vale la pena lanciarlo dopo ogni aggiornamento del plugin e ogni tanto
+per abitudine. Lo stesso controllo fatto a mano ha già trovato una
+deriva reale: lo schema di configurazione corretto viveva solo sul
+dispositivo, e il prossimo `riapplica.sh` avrebbe reinstallato quello
+di monte riportando la modalità degradata.
+
+Il confronto con lo stato precedente esiste per il caso del 18 agosto:
+603 shortcut cancellati, scoperti per caso giorni dopo. Se i giochi si
+dimezzano lo dice subito, e dice anche cosa **non** fare — riavviare
+Steam prima di aver capito perché, che è ciò che rende la perdita
+visibile in libreria.
+
+## Il registro degli shortcut non va potato
+
+Sembra un difetto: 743 voci contro 741 giochi, e nessuno cancella mai
+niente. **È voluto.** Il docstring di `registry.py` lo dice: il file
+sopravvive a disinstallazione e reinstallazione perché è ciò che
+permette di *reclamare* un AppID già assegnato, e con esso l'artwork che
+Steam ha in cache per quell'ID.
+
+Il ripristino del 18 agosto lo dimostra: i 601 giochi Xbox tornati hanno
+ripreso i loro AppID dal registro (`reclaimed=140`, 543 icone
+riagganciate). Con un registro potato avrebbero ricevuto ID nuovi e
+perso tutta l'artwork.
+
+Quanto alla crescita: 743 voci sono 124 KB. Anche a dieci volte la
+libreria resta attorno al megabyte. Non è una perdita, è una memoria.
+
 ## Strumenti
 
 `cdp.py` — client per il debugger CEF di Steam, che ascolta su
