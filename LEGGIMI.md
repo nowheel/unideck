@@ -89,6 +89,35 @@ indietro.** È fra i percorsi di `riapplica.sh`, quindi si risistema.
 
 ---
 
+## L'incidente del 18 agosto 2026 — e la regola che ne è uscita
+
+Una sincronizzazione automatica è partita alle 08:50 e la Deck è andata
+in sospensione a metà. Il socket non conta il tempo in cui la macchina
+dorme, così una richiesta con `timeout=30` ha riportato il proprio
+fallimento **14.596 secondi dopo**. Fin qui è un incidente.
+
+Il difetto è quello che è successo dopo. In `microsoft_catalog.py` ogni
+ramo d'errore faceva `return []`, quindi il guasto è arrivato a valle
+come «questo account non possiede giochi Xbox». `SyncService` ci ha
+creduto, ha riscritto la cache, e il riconciliatore ha **cancellato 603
+shortcut da Steam**. Il log diceva `sync complete — 0 errors`.
+
+E sotto c'era un secondo difetto: `libraries[store] = games` era
+incondizionato. Anche con l'errore riportato correttamente, la libreria
+sarebbe stata svuotata lo stesso.
+
+**La regola, ora fissata da `tests/unit/test_sync_failed_store_keeps_library.py`:**
+un guasto deve restare un guasto (il catalogo solleva
+`XCloudCatalogUnavailable`), e uno store fallito conserva la libreria
+precedente. L'unica cosa che un guasto può costare è la freschezza del
+dato, che è la cosa giusta da perdere.
+
+Ripristino: una sincronizzazione riuscita ha rimesso 601 giochi e 742
+shortcut, con `added=601 removed=0 reclaimed=140` — gli AppID sono
+stati riusati dal registro, quindi l'artwork si è riagganciata.
+
+---
+
 ## Trappole di Steam, imparate a caro prezzo
 
 Tre cose che è costato scoprire e che conviene non riscoprire.

@@ -164,10 +164,12 @@ class MicrosoftCatalogReader:
             "User-Agent": _BROWSER_UA,
             "x-gssv-client": "XboxComBrowser",
         }
-        result = await asyncio.get_event_loop().run_in_executor(
+        # No `or []` guard here: the executor propagates
+        # XCloudCatalogUnavailable, and swallowing it is precisely what
+        # let a failed fetch masquerade as an empty library.
+        return await asyncio.get_event_loop().run_in_executor(
             None, lambda: _xcloud_titles_sync(url, headers),
         )
-        return result or []
 
     async def _batch_resolve_titles(
         self, product_ids: list[str], market: str,
@@ -279,10 +281,31 @@ def _title_for(
     return product_id
 
 
+class XCloudCatalogUnavailable(RuntimeError):
+    """The xCloud catalogue could not be fetched.
+
+    Distinct from "the catalogue is empty", and the distinction is not
+    academic: every branch below used to ``return []`` on failure, so a
+    network error arrived downstream as "this account owns no Xbox
+    games". SyncService believed it, replaced the stored library with
+    nothing, and the shortcut reconciler deleted 603 Steam shortcuts —
+    logging ``sync complete ... (0 errors)`` throughout.
+
+    The trigger was a Deck suspend mid-sync: the socket timeout does
+    not advance while the machine sleeps, so a 30-second request
+    surfaced its failure 14,596 seconds later. That was the accident.
+    Turning a failure into an empty success was the defect.
+    """
+
+
 def _xcloud_titles_sync(
     url: str, headers: dict[str, str],
 ) -> list[dict[str, Any]]:
-    """Synchronous GET for /v2/titles. Returns ``results`` list."""
+    """Synchronous GET for /v2/titles. Returns the ``results`` list.
+
+    Raises :class:`XCloudCatalogUnavailable` when the request fails, so
+    the caller can tell a broken fetch from an empty library.
+    """
     req = urllib.request.Request(url, headers=headers)
     try:
         with urllib.request.urlopen(
@@ -298,19 +321,19 @@ def _xcloud_titles_sync(
             "[MicrosoftCatalog] /v2/titles HTTPError %d (reason=%s)",
             e.code, e.reason,
         )
-        return []
+        raise XCloudCatalogUnavailable(f"HTTP {e.code}: {e.reason}") from e
     except urllib.error.URLError as e:
         logger.exception(
             "[MicrosoftCatalog] /v2/titles URLError (reason=%r)",
             e.reason,
         )
-        return []
+        raise XCloudCatalogUnavailable(f"unreachable: {e.reason!r}") from e
     except Exception as e:
         logger.exception(
             "[MicrosoftCatalog] /v2/titles unexpected %s",
             type(e).__name__,
         )
-        return []
+        raise XCloudCatalogUnavailable(f"{type(e).__name__}: {e}") from e
     try:
         data = json.loads(raw)
     except json.JSONDecodeError:
@@ -319,9 +342,9 @@ def _xcloud_titles_sync(
             "(len=%d, first=%.200s)",
             len(raw), raw,
         )
-        return []
+        raise XCloudCatalogUnavailable("response was not JSON")
     if not isinstance(data, dict):
-        return []
+        raise XCloudCatalogUnavailable("response was not a JSON object")
     results = data.get("results")
     return results if isinstance(results, list) else []
 

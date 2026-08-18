@@ -116,9 +116,35 @@ class _SyncRunMixin:
             self._current_store = store.store_name
             await self._emit_progress(store.store_name, idx, total, libraries)
             games, err = await self._fetch_one(store, is_force)
-            libraries[store.store_name] = games
             if err is not None:
                 errors[store.store_name] = err
+                # A failed fetch must not erase what we already know.
+                #
+                # This assignment used to be unconditional, so any
+                # transient failure — a timeout, a dropped connection,
+                # a suspend mid-sync — replaced that store's library
+                # with nothing. The empty list then flowed into the
+                # cache and into the shortcut reconciler, which deleted
+                # the corresponding Steam shortcuts. One network error
+                # cost 603 of them here.
+                #
+                # Carrying the previous library forward makes a failed
+                # store a no-op for that store: the user keeps their
+                # games, the error is still reported and retried on the
+                # next sync. The only thing lost is freshness, which is
+                # the correct thing to lose.
+                previous = (self._all_games or {}).get(store.store_name)
+                if previous:
+                    logger.warning(
+                        "[SyncService] %s failed (%s) — keeping the %d "
+                        "previously known game(s) rather than clearing them",
+                        store.store_name, err, len(previous),
+                    )
+                    libraries[store.store_name] = list(previous)
+                else:
+                    libraries[store.store_name] = games
+            else:
+                libraries[store.store_name] = games
             if self._cancel_event.is_set():
                 return await self._sync_cancelled_result(
                     idx + 1, total, libraries,

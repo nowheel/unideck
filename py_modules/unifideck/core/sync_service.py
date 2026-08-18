@@ -351,7 +351,18 @@ class SyncService(
         games, err = await self._sync_one_store(store)
         if self._all_games is None:
             self._all_games = {}  # type: ignore[unreachable]  # registry-miss fallback
-        self._all_games[store_name] = games
+        # Same rule as the full-sync loop in `sync_run_mixin`: a failed
+        # fetch keeps what we already had instead of clearing the store.
+        # Refreshing one store must never be able to empty it.
+        previous = self._all_games.get(store_name)
+        if err is not None and previous:
+            logger.warning(
+                "[SyncService] %s refresh failed (%s) — keeping the %d "
+                "previously known game(s)",
+                store_name, err, len(previous),
+            )
+        else:
+            self._all_games[store_name] = games
         self._last_sync_time = time.time()
         self._save_library_cache()
         await self._bus.emit(
