@@ -43,7 +43,7 @@ jobs:
           pip install requests
 
       - name: Sync All Issues (Scheduled or Manual Bulk)
-        if: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.sync_mode == 'all') }}
+        if: ${{ secrets.TRELLO_API_KEY != '' && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.sync_mode == 'all')) }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TRELLO_API_KEY: ${{ secrets.TRELLO_API_KEY }}
@@ -52,7 +52,7 @@ jobs:
         run: python scripts/sync_to_trello.py --all
 
       - name: Sync Specific Issue (Manual Single)
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.sync_mode == 'single_issue' && inputs.issue_number != '' }}
+        if: ${{ secrets.TRELLO_API_KEY != '' && github.event_name == 'workflow_dispatch' && inputs.sync_mode == 'single_issue' && inputs.issue_number != '' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TRELLO_API_KEY: ${{ secrets.TRELLO_API_KEY }}
@@ -61,7 +61,7 @@ jobs:
         run: python scripts/sync_to_trello.py --issue ${{ inputs.issue_number }}
 
       - name: Sync New Issue or Comment (Automated)
-        if: ${{ github.event_name == 'issues' || github.event_name == 'issue_comment' }}
+        if: ${{ secrets.TRELLO_API_KEY != '' && (github.event_name == 'issues' || github.event_name == 'issue_comment') }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TRELLO_API_KEY: ${{ secrets.TRELLO_API_KEY }}
