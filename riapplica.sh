@@ -27,8 +27,31 @@ BASE_TAG="$(cat "$REPO/.base-upstream" 2>/dev/null || echo Release-0.7.3)"
 WORK=/tmp/unifideck-riapplica
 UPSTREAM=https://github.com/mubaraknumann/unifideck.git
 
-# I percorsi che consideriamo nostri. Tutto il resto viene da monte.
-NOSTRI=(src py_modules/unifideck/config/schema.json)
+# I percorsi che consideriamo nostri. Tutto il resto viene da monte, e un
+# percorso che manca qui non entra nel commit che viene rebasato: torna alla
+# versione di monte senza conflitto, senza errore e senza una riga di log.
+#
+# I file Python NON sono elencati qui a mano: si leggono da nostri-py.txt, che
+# e' anche cio' che installa-root.sh copia nel plugin. Due elenchi da tenere in
+# step erano una fonte di verita' di troppo — passando a 0.7.5 cinque file
+# Python erano in uno e non nell'altro, e sono spariti in silenzio.
+NOSTRI=(
+  src
+  # L'elenco stesso: serve a installa-root.sh dentro $WORK/repo, non solo qui.
+  nostri-py.txt
+  # Sviluppo: senza questi il rebase riporta la versione di monte e si perde
+  # il collegamento a src/test-support/, gia' successo una volta.
+  vitest.config.ts
+  .gitignore
+  docs
+  tests
+)
+while IFS= read -r _riga; do
+  _riga="${_riga%%#*}"                       # via i commenti
+  _riga="$(printf '%s' "$_riga" | tr -d '[:space:]')"
+  [[ -n "$_riga" ]] && NOSTRI+=("py_modules/$_riga")
+done < "$REPO/nostri-py.txt"
+unset _riga
 
 G="git -c user.email=unifideck@local -c user.name=riapplica"
 
@@ -107,7 +130,13 @@ Installa con:
     sudo bash "$REPO/installa-root.sh" "$WORK/repo/dist"
 
 Quando sei soddisfatto, riporta i sorgenti fusi in questo repo e sposta
-la base in avanti:
+la base in avanti. I file Python vanno riportati uno per uno: in
+$WORK/repo/py_modules c'e' tutto monte, e copiarlo intero seppellirebbe
+il repo sotto le dipendenze vendored.
     cp -a $WORK/repo/src "$REPO/"
+    while IFS= read -r r; do
+      r="\${r%%#*}"; r="\$(printf '%s' "\$r" | tr -d '[:space:]')"
+      [ -n "\$r" ] && cp -a "$WORK/repo/py_modules/\$r" "$REPO/py_modules/\$r"
+    done < "$REPO/nostri-py.txt"
     echo "$NEW_TAG" > "$REPO/.base-upstream"
 EOF

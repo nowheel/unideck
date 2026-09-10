@@ -19,6 +19,7 @@ third-party HTTP client.
 """
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
 import os
@@ -33,6 +34,14 @@ import urllib.request
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
+
+from unifideck.launcher.proton.infrastructure.ge_install_lock import (
+    install_lock,
+)
+from unifideck.launcher.proton.infrastructure.ge_marker import (
+    write_latest_tag as _write_marker,
+)
+from unifideck.utils import vdf_compat
 
 logger = logging.getLogger(__name__)
 
@@ -60,17 +69,13 @@ def _ssl_ctx() -> ssl.SSLContext:
 
 # Install target — the primary root the selector scans first.
 COMPAT_TOOLS_DIR = Path("~/.steam/root/compatibilitytools.d").expanduser()
-# Roots scanned to decide whether a tag is already installed. Mirrors
-# ``selector.STEAM_COMPAT_ROOTS`` (kept local to avoid a circular
-# import — selector imports this module, not the other way round).
-_SCAN_ROOTS: tuple[str, ...] = (
-    "~/.steam/root/compatibilitytools.d",
-    "~/.steam/steam/compatibilitytools.d",
-    "~/.local/share/Steam/compatibilitytools.d",
-)
-# Records the tag the background installer last validated, so the
-# launcher can resolve the default without a network round-trip.
-_MARKER = Path("~/.local/share/unifideck/proton_ge_latest.json").expanduser()
+# Roots scanned to decide whether a tag is already installed. Sourced from
+# ``vdf_compat`` — the one definition of where compat tools live — rather
+# than a local copy; ``vdf_compat`` is stdlib-only and launcher-safe, so it
+# imports cleanly here and there is no cycle (selector imports this module,
+# not the other way round). Excludes the unifideck compat dir: this answers
+# "is this *GE tag* installed", and GE lands in ``COMPAT_TOOLS_DIR``.
+_SCAN_ROOTS: tuple[str, ...] = vdf_compat.STEAM_COMPAT_ROOTS
 
 ProgressCb = Callable[[int, int], None]
 
@@ -227,39 +232,33 @@ def is_proton_install_complete(proton_script: Path) -> bool:
     return True
 
 
-def read_cached_latest_tag() -> str | None:
-    """Return the tag the background installer last validated, if any."""
-    if not _MARKER.is_file():
-        return None
-    try:
-        data = json.loads(_MARKER.read_text())
-    except (OSError, ValueError):
-        return None
-    tag = data.get("tag")
-    return tag or None
-
-
-def _write_marker(tag: str) -> None:
-    """Record ``tag`` as the validated latest GE-Proton (best effort)."""
-    try:
-        _MARKER.parent.mkdir(parents=True, exist_ok=True)
-        _MARKER.write_text(json.dumps({"tag": tag, "installed_at": time.time()}))
-    except OSError as e:
-        logger.warning("[ge_installer] could not write marker: %s", e)
-
-
 def _select_tarball(assets: list[dict[str, Any]], tag: str | None = None) -> str | None:
-    """Pick the GE-Proton x86_64 ``.tar.gz`` asset URL (skipping checksums and non-x86 archs)."""
-    if tag:
-        expected_name = f"{tag}.tar.gz"
-        for asset in assets:
-            if asset.get("name") == expected_name:
-                return asset.get("browser_download_url")
+    """Pick the GE-Proton x86_64 ``.tar.gz`` asset URL.
 
-    for asset in assets:
-        name = asset.get("name", "")
+    GE's asset naming changed at GE-Proton11-4: the x86_64 build went from
+    a bare ``<tag>.tar.gz`` to ``<tag>-x86_64.tar.gz``, alongside the
+    aarch64 build that had already started shipping. Both spellings are
+    matched by exact name first, then by the ``-x86_64`` suffix.
+
+    The deny-list scan is kept last as a safety net, but it is only
+    correct while every non-x86 asset carries one of the arch markers it
+    knows about — a future ``riscv64``/``ppc64le`` build would slip
+    through it — so the positive matches deliberately run first.
+    """
+    urls = {a.get("name", ""): a.get("browser_download_url") for a in assets}
+
+    if tag:
+        for expected in (f"{tag}-x86_64.tar.gz", f"{tag}.tar.gz"):
+            if urls.get(expected):
+                return urls[expected]
+
+    for name, url in urls.items():
+        if name.endswith("-x86_64.tar.gz"):
+            return url
+
+    for name, url in urls.items():
         if name.endswith(".tar.gz") and not any(k in name for k in ("sha512", "aarch64", "arm64")):
-            return asset.get("browser_download_url")
+            return url
     return None
 
 
@@ -344,41 +343,48 @@ def _make_executable(path: Path) -> None:
 
 
 def _find_extracted_root(staging: Path, tag: str) -> Path | None:
-    """Locate the archive's top-level directory inside ``staging``.
+    """Locate the extracted Proton tree inside ``staging``.
 
-    GE-Proton archives used to expand to a ``<tag>/`` dir matching the
-    release tag exactly, which is what ``_promote_extracted`` assumed.
-    Multi-arch releases (this one included) name the ``.tar.gz`` asset —
-    and therefore its top-level dir — after the ASSET instead, e.g. the
-    ``GE-Proton11-5`` tag ships ``GE-Proton11-5-x86_64.tar.gz`` /
-    ``GE-Proton11-5-aarch64.tar.gz``, which extract to
-    ``GE-Proton11-5-x86_64/``. A strict ``staging / tag`` lookup never
-    finds that directory, so every install of such a release logged
-    "extracted tree missing proton script" and fell back to Proton
-    Experimental — even for a perfectly complete download. Try the exact
-    tag first (still correct for older single-arch releases), then fall
-    back to the sole other directory staging contains.
+    A GE-Proton archive expands to a single top-level directory, but its
+    name is NOT reliably the tag. From GE-Proton11-4 the x86_64 build
+    unpacks to ``<tag>-x86_64/`` (matching the renamed asset) instead of
+    ``<tag>/``, so keying off the tag alone made every install fail its
+    "missing proton script" check — silently re-downloading ~500 MB on
+    every plugin start and pinning users to the newest GE already on
+    disk.
+
+    The tree is therefore identified by the thing that actually defines
+    it: a top-level dir holding a ``proton`` script. If a future archive
+    ever ships more than one, an exact-or-``<tag>-``-prefixed name wins
+    so the choice never rests on sort order.
     """
-    exact = staging / tag
-    if exact.is_dir():
-        return exact
-    candidates = [p for p in staging.iterdir() if p.is_dir()]
-    if len(candidates) == 1:
-        return candidates[0]
-    if len(candidates) > 1:
-        logger.warning(
-            "[ge_installer] ambiguous extracted layout for %s: %s",
-            tag, [c.name for c in candidates],
+    try:
+        candidates = sorted(
+            d for d in staging.iterdir() if d.is_dir() and (d / "proton").is_file()
         )
-    return None
+    except OSError as e:
+        logger.warning("[ge_installer] could not scan the staging dir: %s", e)
+        return None
+    if not candidates:
+        return None
+    for candidate in candidates:
+        if candidate.name == tag or candidate.name.startswith(f"{tag}-"):
+            return candidate
+    return candidates[0]
 
 
 def _promote_extracted(staging: Path, tag: str) -> Path | None:
-    """Validate the extracted tree and move it into place.
+    """Validate the extracted tree and move it into place as ``<tag>/``.
 
     The move into ``COMPAT_TOOLS_DIR`` only happens after the ``proton``
     script is confirmed present and made executable, returning the final
     executable ``proton`` path (or ``None`` if validation fails).
+
+    The destination is always the bare ``<tag>`` regardless of what the
+    archive called its top-level dir: the marker file,
+    :func:`installed_ge_proton_path` and the selector all key off the tag,
+    so publishing an arch-suffixed name would install fine yet still miss
+    the "already installed?" check and re-download on the next start.
 
     ``toolmanifest.vdf`` is validated here too, while the tree is still in
     staging and gets cleaned up for free — catching a bad build before it
@@ -387,12 +393,12 @@ def _promote_extracted(staging: Path, tag: str) -> Path | None:
     arrive from somewhere other than this installer).
     """
     extracted = _find_extracted_root(staging, tag)
-    proton = extracted / "proton" if extracted else None
-    if not proton or not proton.is_file():
+    if extracted is None:
         logger.warning(
             "[ge_installer] extracted tree missing proton script (%s)", tag,
         )
         return None
+    proton = extracted / "proton"
     if not _toolmanifest_ok(extracted):
         logger.warning(
             "[ge_installer] discarding %s: extracted tree has no usable "
@@ -402,9 +408,25 @@ def _promote_extracted(staging: Path, tag: str) -> Path | None:
     _make_executable(proton)
 
     dest = COMPAT_TOOLS_DIR / tag
-    if dest.exists():
-        shutil.rmtree(dest, ignore_errors=True)
-    shutil.move(extracted, dest)
+    # Rename-aside, never rmtree-then-move. ``dest`` may be the Proton a game
+    # or a live ``umu-run`` is executing out of right now: deleting it first
+    # leaves a window with no tag directory at all, and pulls the files out
+    # from under that process. Two renames on one filesystem (staging is
+    # created inside COMPAT_TOOLS_DIR) leave the path always resolvable, and a
+    # process holding the old tree's inodes keeps working until it exits.
+    aside = COMPAT_TOOLS_DIR / f".{tag}.old-{os.getpid()}"
+    try:
+        if dest.exists():
+            dest.rename(aside)
+        extracted.rename(dest)
+    except OSError as e:
+        logger.warning("[ge_installer] could not publish %s: %s", tag, e)
+        with contextlib.suppress(OSError):
+            if aside.exists() and not dest.exists():
+                aside.rename(dest)
+        return None
+    finally:
+        shutil.rmtree(aside, ignore_errors=True)
     final = dest / "proton"
     if not os.access(final, os.X_OK):
         return None
@@ -451,6 +473,13 @@ def ensure_latest_ge(
     when the release can't be fetched (offline / GitHub down) or the
     download/extract fails. When the latest is already validly installed
     it just refreshes the marker and returns it without downloading.
+
+    The install itself is serialised across processes by :func:`ge_install_lock.install_lock`
+    and re-checked under it with the STRONG :func:`is_proton_install_complete`
+    rather than the presence-only ``installed_ge_proton_path``. The weak check
+    is false during a publish, so without the re-check the loser of a race
+    would download and republish over the directory the winner just installed
+    — and over whatever is running out of it.
     """
     release = _fetch_latest_release(timeout)
     if not release:
@@ -470,8 +499,16 @@ def ensure_latest_ge(
         logger.warning("[ge_installer] no .tar.gz asset found for %s", tag)
         return None
 
-    logger.info("[ge_installer] downloading GE-Proton %s", tag)
-    script = _download_and_install(tag, url, progress_cb)
+    with install_lock():
+        settled = installed_ge_proton_path(tag)
+        if settled and is_proton_install_complete(settled):
+            _write_marker(tag)
+            logger.info(
+                "[ge_installer] GE-Proton %s installed while we waited", tag,
+            )
+            return settled, tag
+        logger.info("[ge_installer] downloading GE-Proton %s", tag)
+        script = _download_and_install(tag, url, progress_cb)
     if not script:
         return None
     _write_marker(tag)

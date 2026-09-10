@@ -40,11 +40,15 @@ if [[ -f dist/index.js && -f "$DEST/dist/index.js" ]]; then
 else
   warn "dist/index.js assente da una delle due parti"
 fi
-# I file che consideriamo nostri; devono coincidere con NOSTRI= in riapplica.sh
-for f in py_modules/unifideck/config/schema.json \
-         py_modules/unifideck/stores/microsoft/microsoft_catalog.py \
-         py_modules/unifideck/core/sync_run_mixin.py \
-         py_modules/unifideck/core/sync_service.py; do
+# I file che consideriamo nostri. L'elenco si legge da nostri-py.txt invece di
+# stare qui: una copia scritta a mano rimane indietro senza dirlo, e questa era
+# ferma a quattro file su sei — i due che mancavano sono proprio quelli che un
+# aggiornamento aveva gia' sovrascritto una volta.
+while IFS= read -r riga; do
+  riga="${riga%%#*}"
+  riga="$(printf '%s' "$riga" | tr -d '[:space:]')"
+  [[ -n "$riga" ]] || continue
+  f="py_modules/$riga"
   if [[ -f "$f" && -f "$DEST/$f" ]]; then
     diff -q "$f" "$DEST/$f" >/dev/null 2>&1 \
       && ok "$(basename "$f")" \
@@ -52,7 +56,7 @@ for f in py_modules/unifideck/config/schema.json \
   else
     warn "$(basename "$f") assente"
   fi
-done
+done < nostri-py.txt
 
 echo "── Plugin ──"
 LOG="$LOGDIR/$(ls -t "$LOGDIR" 2>/dev/null | head -1)"

@@ -1,0 +1,37 @@
+# I file Python (e JSON) che divergono da monte, uno per riga, con il path
+# relativo a py_modules/. Righe vuote e righe che iniziano con # sono ignorate.
+#
+# Questo elenco ha due lettori, e sbagliarlo non produce un errore ma un
+# silenzio: installa-root.sh copia questi file nel plugin installato, e
+# controlla.sh verifica che l'installato coincida col repo. Un file nostro
+# che manca qui non viene installato, e nessuno se ne accorge finche' non
+# manca la funzione che conteneva.
+#
+# Va tenuto in step con l'array NOSTRI= in riapplica.sh, che e' l'elenco di
+# cosa sopravvive al rebase su una nuova versione di monte. Sono due elenchi
+# perche' rispondono a due domande diverse, ma per i file Python la risposta
+# e' la stessa: se e' qui, deve essere anche li'.
+
+# Rete di sicurezza sulla libreria (issue #405): un fetch fallito non deve
+# poter svuotare uno store. sync_run_mixin.py porta anche il rilevatore di
+# collasso, tarato sul caso che l'ha reso necessario (603 giochi a zero).
+unifideck/core/sync_run_mixin.py
+unifideck/core/sync_service.py
+unifideck/stores/microsoft/microsoft_catalog.py
+
+# La sezione `steam` che il plugin scriveva e lo schema rifiutava, mandandolo
+# in modalita' degradata a ogni avvio (issue #430).
+unifideck/config/schema.json
+
+# escape_argv per l'avvio fuori dal container Flatpak; monte non ne ha uno.
+unifideck/launcher/proton/infrastructure/selector.py
+
+# Riespone get_all_playtimes, che monte ha tolto nell'audit §1.2. La nostra
+# pagina catalogo ordina per tempo di gioco su tutta la libreria in una volta
+# sola; con la sola rotta per-gioco servirebbe una chiamata per titolo.
+unifideck/rpc/mixins/playtime.py
+
+# NON elencare qui ge_installer.py: il fix multi-arch di monte (identifica
+# l'albero estratto dallo script `proton` che contiene, invece che dal nome)
+# e' piu' robusto del nostro e lo abbiamo adottato. Vedi CLAUDE.md, "Quando
+# monte risolve lo stesso bug in modo diverso".
