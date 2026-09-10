@@ -71,9 +71,24 @@ fi
 # lo farebbe il plugin, e si tocca qualcosa solo se fallisce E il sistema
 # offre un rimpiazzo che funziona. Su SteamOS il primo controllo passa e
 # questo blocco non fa nulla.
-PY="$(command -v python3 || echo /usr/bin/python)"
+# L'interprete da interrogare e' quello che esegue davvero i plugin, cioe'
+# quello nello shebang di decky-loader — non `python3` del PATH. Su questo
+# Deck coincidono, ma dove non coincidessero il controllo qui sotto direbbe
+# la sua su un Python diverso da quello che poi importa, e un falso positivo
+# non lascia il plugin com'era: gli toglie dipendenze che gli servono.
+PY=""
+DECKY_BIN="$(command -v decky-loader || echo /usr/bin/decky-loader)"
+if [[ -r "$DECKY_BIN" ]] && IFS= read -r shebang < "$DECKY_BIN" && [[ "$shebang" == '#!'* ]]; then
+  read -r cand extra <<< "${shebang#\#!}"
+  # `#!/usr/bin/env python3` → l'interprete e' l'argomento, non env.
+  [[ "$(basename "$cand")" == env ]] && cand="$(command -v "${extra%% *}" || true)"
+  [[ -x "$cand" ]] && PY="$cand"
+fi
+[[ -n "$PY" ]] || PY="$(command -v python3 || true)"
 VENDORED_JSONSCHEMA=(rpds referencing jsonschema jsonschema_specifications)
-if ! "$PY" -c "import sys; sys.path.insert(0, '$PLUGIN/py_modules'); import jsonschema" 2>/dev/null; then
+if [[ -z "$PY" ]]; then
+  echo "   ! nessun interprete Python identificato — non tocco le vendored" >&2
+elif ! "$PY" -c "import sys; sys.path.insert(0, '$PLUGIN/py_modules'); import jsonschema" 2>/dev/null; then
   if "$PY" -c "import jsonschema, rpds" 2>/dev/null; then
     echo "→ jsonschema vendored incompatibile con $("$PY" -V) — uso quello di sistema"
     mkdir -p "$BACKUP/py_modules-vendored"
