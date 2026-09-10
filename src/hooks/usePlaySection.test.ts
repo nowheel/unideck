@@ -145,6 +145,7 @@ describe("usePlaySection — a finished download is not an active one", () => {
   }
 
   const installed = game({
+    store_game_id: "2022341186",
     id: "2022341186",
     store: "gog",
     store_tags: [],

@@ -88,6 +88,7 @@ export const rpcRoutes = {
   clearLaunchFailures: "clear_launch_failures",
   armCircuitBypass: "arm_circuit_bypass",
   getPlaytime: "get_playtime",
+  getAllPlaytimes: "get_all_playtimes",
   // Action dispatcher (ActionRPCMixin) — bidirectional bridge
   dispatchUnifideckAction: "dispatch_unifideck_action",
   // Manual cloud-save status / pull / push (CloudSaveRPCMixin)

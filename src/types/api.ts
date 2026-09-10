@@ -181,7 +181,7 @@ export interface PlaySession {
   playtime_seconds: number;
 }
 
-export type StoreId = "steam" | "epic" | "gog" | "ubisoft" | "amazon";
+export type StoreId = "steam" | "epic" | "gog" | "ubisoft" | "amazon" | "microsoft";
 export type GameTag = string;
 export type OwnershipType = string;
 export type DeckRating = string;

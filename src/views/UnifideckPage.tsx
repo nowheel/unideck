@@ -317,7 +317,7 @@ const UnifideckPageInner: FC = () => {
     (game: Game) => {
       const compat = compatFor(game);
       if (!compat) return null;
-      switch (compat.deckVerified) {
+      switch (compat.status) {
         case "verified":
           return { text: t("unifideckPage.deckVerified", "Verified"), tone: C.teal };
         case "playable":

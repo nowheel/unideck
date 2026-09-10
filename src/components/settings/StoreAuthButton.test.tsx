@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 /**
  * Regression: a store row must never render without an auth button.
  *
