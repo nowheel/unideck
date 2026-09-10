@@ -20,7 +20,7 @@ vi.mock("../../lib/library-facets", () => ({
 }));
 vi.mock("../../lib/protondb-cache", () => ({
   getCachedCompatByTitle: (title: string) => compatByTitle(title),
-  meetsGreatOnDeckCriteria: (compat: { verdict?: boolean } | null) =>
+  meetsGreatOnCurrentDevice: (compat: { verdict?: boolean } | null) =>
     Boolean(compat?.verdict),
 }));
 
