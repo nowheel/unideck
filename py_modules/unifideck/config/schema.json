@@ -56,17 +56,6 @@
         }
       }
     },
-    "steam": {
-      "type": "object",
-      "additionalProperties": false,
-      "description": "Steam account binding. Written by the plugin itself (steam/current_user.py, CONFIG_ACTIVE_USER_KEY = 'steam.active_user'); absent from this schema until now, so every write invalidated the user config and the plugin booted in degraded mode.",
-      "properties": {
-        "active_user": {
-          "type": "string",
-          "description": "Authoritative Steam account id (32-bit, as text)."
-        }
-      }
-    },
     "sync": {
       "type": "object",
       "additionalProperties": false,

@@ -19,9 +19,11 @@ unifideck/core/sync_run_mixin.py
 unifideck/core/sync_service.py
 unifideck/stores/microsoft/microsoft_catalog.py
 
-# La sezione `steam` che il plugin scriveva e lo schema rifiutava, mandandolo
-# in modalita' degradata a ogni avvio (issue #430).
-unifideck/config/schema.json
+# NON elencare qui config/schema.json: la #430 e' risolta in 0.7.5. Monte
+# dichiara la sezione `steam` con lo stesso `active_user` e lo stesso
+# `additionalProperties: false`, e con una descrizione migliore della nostra
+# (cita il caso osservato su ROG Ally X). Verificato riga per riga il
+# 10 settembre 2026: il nostro file e' ora identico al suo.
 
 # escape_argv per l'avvio fuori dal container Flatpak; monte non ne ha uno.
 unifideck/launcher/proton/infrastructure/selector.py
