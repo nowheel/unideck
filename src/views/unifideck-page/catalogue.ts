@@ -372,3 +372,57 @@ export function jumpToAdjacentInitial(
   while (j > 0 && initialOf(games[j - 1].title) === previous) j--;
   return j;
 }
+
+/**
+ * A store that used to contribute games and now contributes far fewer.
+ *
+ * The library is a cache. When a store's token expires the sync drops it
+ * ("stores excluded from sync (not available)") and rewrites the cache
+ * without it — no error, no toast, just a smaller library. Measured on
+ * 2026-09-10: 853 games became 251 because Microsoft's token was gone, and
+ * nothing in the UI said so. The page showed 251 titles as if that were the
+ * whole collection.
+ */
+export interface StoreShrink {
+  store: string;
+  before: number;
+  now: number;
+}
+
+/**
+ * A store must have contributed at least this many games before a drop is
+ * worth reporting; small libraries swing wildly for ordinary reasons.
+ *
+ * Deliberately the same value as `_COLLAPSE_FLOOR` in the backend's
+ * `sync_run_mixin.py`. The two guards watch different moments — that one a
+ * sync in progress, this one the page you opened an hour later — and a user
+ * warned by one and not the other would reasonably conclude that one of them
+ * is lying.
+ */
+export const SHRINK_FLOOR = 10;
+
+/** Keeping less than this fraction counts as a collapse. Also from the backend. */
+export const SHRINK_RATIO = 0.5;
+
+/**
+ * Compare the store counts against what was last seen, and report the ones
+ * that collapsed.
+ *
+ * Growth is never reported and neither is a new store: the question this
+ * answers is "is something missing that I used to have", and every other
+ * change is the library working normally.
+ */
+export function detectShrink(
+  seen: Readonly<Record<string, number>>,
+  current: ReadonlyMap<string, number>,
+): StoreShrink[] {
+  const out: StoreShrink[] = [];
+  for (const [store, before] of Object.entries(seen)) {
+    if (!Number.isFinite(before) || before < SHRINK_FLOOR) continue;
+    const now = current.get(store) ?? 0;
+    if (now < before * SHRINK_RATIO) out.push({ store, before, now });
+  }
+  // Largest loss first: with two stores gone the bigger one is the one worth
+  // naming in a banner that has room for one line.
+  return out.sort((a, b) => b.before - b.now - (a.before - a.now));
+}

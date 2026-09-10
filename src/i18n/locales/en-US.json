@@ -1107,6 +1107,9 @@
     "tierBorked": "Borked",
     "sync": "Sync",
     "hintLetter": "L2/R2 letter",
-    "syncing": "Syncing"
+    "syncing": "Syncing",
+    "storeShrank": "{{store}}: {{lost}} games are missing from this list",
+    "storeShrankHint": "Nothing was deleted — the store needs reconnecting in the Quick Access menu, then a sync.",
+    "dismiss": "Got it"
   }
 }

@@ -53,7 +53,13 @@ const prendi = (nome) => {
 };
 const rotta = prendi("--rotta");
 const soloLista = argv.includes("--lista");
-const [cerca = "Big Picture", dest = "steam.png"] = argv.filter((a) => !a.startsWith("--"));
+// Un solo posizionale che finisce in .png e' la destinazione, non il nome di
+// un target: `schermata.mjs --rotta /unifideck out.png` e' come viene naturale
+// scriverlo, e interpretarlo come target fallisce con un messaggio che elenca
+// finestre di Steam quando il problema era l'ordine degli argomenti.
+const posizionali = argv.filter((a) => !a.startsWith("--"));
+if (posizionali.length === 1 && /\.png$/i.test(posizionali[0])) posizionali.unshift("Big Picture");
+const [cerca = "Big Picture", dest = "steam.png"] = posizionali;
 
 let targets;
 try {

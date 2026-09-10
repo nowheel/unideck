@@ -31,6 +31,7 @@ import {
   jumpToAdjacentInitial,
   jumpToAdjacentLetterPage,
   countByStore,
+  detectShrink,
   gameId,
   gameKey,
   formatPlaytime,
@@ -427,5 +428,67 @@ describe("letter jump anchored on pages", () => {
   it("handles an empty library", () => {
     expect(jumpToAdjacentLetterPage([], 0, PAGE, 1)).toBeNull();
     expect(initialBoundaries([])).toEqual([]);
+  });
+});
+
+/**
+ * The library shrinking without saying so.
+ *
+ * This is the frontend half of the guard that `sync_run_mixin.py` runs during
+ * a sync. That one only speaks while syncing; this one speaks when you open
+ * the page, which is the moment you would otherwise conclude that half your
+ * collection was never there.
+ */
+describe("detectShrink", () => {
+  it("says nothing when the counts are unchanged", () => {
+    const now = new Map([["epic", 104], ["gog", 36]]);
+    expect(detectShrink({ epic: 104, gog: 36 }, now)).toEqual([]);
+  });
+
+  it("reports a store that lost most of its games", () => {
+    // The measured case: Microsoft's token expired, the sync excluded the
+    // store and rewrote the cache without it.
+    const now = new Map([["epic", 104], ["microsoft", 0]]);
+    expect(detectShrink({ epic: 104, microsoft: 608 }, now)).toEqual([
+      { store: "microsoft", before: 608, now: 0 },
+    ]);
+  });
+
+  it("ignores a store too small for the drop to mean anything", () => {
+    // Ubisoft really did go 7 -> 0 on the same evening. Below the floor it
+    // is indistinguishable from uninstalling a couple of games, and a
+    // banner that cries wolf at 7 is a banner nobody reads at 600.
+    expect(detectShrink({ ubisoft: 7 }, new Map([["ubisoft", 0]]))).toEqual([]);
+  });
+
+  it("ignores a store that is merely smaller, not collapsed", () => {
+    // Half is the line, and 60 of 100 is the library working normally.
+    expect(detectShrink({ epic: 100 }, new Map([["epic", 60]]))).toEqual([]);
+  });
+
+  it("reports exactly at the collapse line", () => {
+    expect(detectShrink({ epic: 100 }, new Map([["epic", 49]]))).toHaveLength(1);
+    expect(detectShrink({ epic: 100 }, new Map([["epic", 50]]))).toHaveLength(0);
+  });
+
+  it("never reports growth, or a store seen for the first time", () => {
+    expect(detectShrink({ epic: 100 }, new Map([["epic", 300]]))).toEqual([]);
+    expect(detectShrink({}, new Map([["epic", 300]]))).toEqual([]);
+  });
+
+  it("puts the biggest loss first", () => {
+    const seen = { microsoft: 608, epic: 104 };
+    const now = new Map([["microsoft", 0], ["epic", 0]]);
+    expect(detectShrink(seen, now).map((s) => s.store)).toEqual(["microsoft", "epic"]);
+  });
+
+  it("survives a stored value that is not a number", () => {
+    // localStorage holds whatever was there last, including something an
+    // older version wrote. A corrupt entry must not throw on page mount.
+    const seen = { epic: "molti" as unknown as number, gog: 36 };
+    expect(() => detectShrink(seen, new Map([["gog", 0]]))).not.toThrow();
+    expect(detectShrink(seen, new Map([["gog", 0]]))).toEqual([
+      { store: "gog", before: 36, now: 0 },
+    ]);
   });
 });

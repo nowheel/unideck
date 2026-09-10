@@ -52,7 +52,9 @@ import { clearCoverCache } from "./unifideck-page/cover";
 import {
   DEFAULT_FILTERS,
   loadFilters,
+  loadStoreCounts,
   saveFilters,
+  saveStoreCounts,
 } from "./unifideck-page/preferences";
 import { toSteamAppId } from "../lib/appid";
 import {
@@ -61,11 +63,13 @@ import {
   jumpToAdjacentLetterPage,
   compatFor,
   countByStore,
+  detectShrink,
   indexPlaytimes,
   selectCatalogue,
   type SortKey,
   type StatusFilter,
   type StoreFilter,
+  type StoreShrink,
 } from "./unifideck-page/catalogue";
 import type { Game, StoreId } from "../types/api";
 import type { PlaytimeEntry } from "../types/playtime";
@@ -161,6 +165,30 @@ const UnifideckPageInner: FC = () => {
   );
 
   const storeCounts = useMemo(() => countByStore(all), [all]);
+
+  // Read once: comparing against a baseline that moves as the page renders
+  // would compare the library to itself and never report anything.
+  const seenCounts = useRef(loadStoreCounts()).current;
+  const [shrink, setShrink] = useState<StoreShrink[]>([]);
+
+  useEffect(() => {
+    // `games == null` is "the library has not arrived", which is not a loss.
+    // `all.length === 0` after it arrives *is* one, and the worst kind, so the
+    // two must not be conflated — the same distinction `loadFilters` documents.
+    if (games == null) return;
+    const lost = detectShrink(seenCounts, storeCounts);
+    setShrink(lost);
+    // The baseline only moves forward on a healthy library. Recording the
+    // shrunken counts here would make the warning vanish on the next visit
+    // and take the evidence with it.
+    if (lost.length === 0) saveStoreCounts(storeCounts);
+  }, [games, storeCounts, seenCounts]);
+
+  /** The user accepts the smaller library: record it and stop warning. */
+  const acceptShrink = useCallback(() => {
+    saveStoreCounts(storeCounts);
+    setShrink([]);
+  }, [storeCounts]);
 
   // Persist the filters, and drop a remembered store that no longer
   // exists. Without the second half, disconnecting a store would
@@ -519,6 +547,21 @@ const UnifideckPageInner: FC = () => {
             onFocusWithin={setRailFocused}
           />
 
+          {/* Only the worst one. Two banners stacked would push the first row
+              of the grid off a 534px-tall screen, and the second store is
+              almost always gone for the same reason as the first. */}
+          {shrink.length > 0 && (
+            <ShrinkNotice
+              message={t("unifideckPage.storeShrank", {
+                store: t(`deckTabs.${shrink[0].store}`, shrink[0].store),
+                lost: shrink[0].before - shrink[0].now,
+              })}
+              hint={t("unifideckPage.storeShrankHint")}
+              dismissLabel={t("unifideckPage.dismiss")}
+              onDismiss={acceptShrink}
+            />
+          )}
+
           <div style={{ flex: 1 }}>
             <CatalogueGrid
               // Remount per page so focus re-enters at the first tile
@@ -603,6 +646,63 @@ const Shell: FC<{
 );
 
 /** Focusable retry affordance for the error state. */
+/**
+ * The library is smaller than it was, and says so.
+ *
+ * Amber and not red: nothing is broken and nothing was deleted — the games are
+ * still owned, and the shortcuts are still in Steam. What is missing is a
+ * store's contribution to the cache, which comes back on the next successful
+ * sync. Red here would send people looking for damage that isn't there.
+ *
+ * It names the store and the number, because "some games are missing" is the
+ * thing the user could already see. Measured case: Microsoft went 608 -> 0
+ * when its token expired, and the page showed 251 titles as if that were the
+ * whole library.
+ */
+const ShrinkNotice: FC<{
+  message: string;
+  hint: string;
+  dismissLabel: string;
+  onDismiss: () => void;
+}> = ({ message, hint, dismissLabel, onDismiss }) => (
+  <div
+    style={{
+      margin: "0 18px 10px",
+      padding: "12px 16px",
+      borderRadius: 12,
+      border: `1px solid ${C.amber}55`,
+      background: C.amberGlow.replace("0.35", "0.10"),
+      display: "flex",
+      alignItems: "center",
+      gap: 14,
+    }}
+  >
+    <div style={{ flex: 1, minWidth: 0 }}>
+      <div style={{ fontFamily: MONO, fontSize: 13, color: C.amberSoft }}>
+        {message}
+      </div>
+      <div style={{ fontSize: 12, color: C.textDim, marginTop: 3 }}>{hint}</div>
+    </div>
+    <Focusable
+      noFocusRing
+      onActivate={onDismiss}
+      data-udk="btn"
+      style={{
+        fontFamily: MONO,
+        fontSize: 12,
+        padding: "7px 14px",
+        borderRadius: 10,
+        cursor: "pointer",
+        whiteSpace: "nowrap",
+        color: C.text,
+        border: `1px solid ${C.borderStrong}`,
+      }}
+    >
+      {dismissLabel}
+    </Focusable>
+  </div>
+);
+
 const RetryButton: FC<{ label: string; onRetry: () => void }> = ({
   label,
   onRetry,

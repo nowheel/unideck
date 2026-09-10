@@ -17,10 +17,16 @@ vi.mock("../../lib/library-facets", () => ({
 }));
 vi.mock("../../lib/protondb-cache", () => ({
   getCachedCompatByTitle: () => null,
-  meetsGreatOnDeckCriteria: () => false,
+  meetsGreatOnCurrentDevice: () => false,
 }));
 
-import { DEFAULT_FILTERS, loadFilters, saveFilters } from "./preferences";
+import {
+  DEFAULT_FILTERS,
+  loadFilters,
+  loadStoreCounts,
+  saveFilters,
+  saveStoreCounts,
+} from "./preferences";
 
 beforeEach(() => window.localStorage.clear());
 
@@ -65,6 +71,50 @@ describe("loadFilters", () => {
 
   it("survives corrupt storage", () => {
     window.localStorage.setItem("unifideck:catalogue-filters:v1", "{not json");
+    expect(loadFilters()).toEqual(DEFAULT_FILTERS);
+  });
+});
+
+/**
+ * The baseline the shrink warning compares against.
+ *
+ * Every read here is defensive for the same reason the filters are: whatever
+ * is in localStorage was written by some past version, and a page that throws
+ * on mount because of it is worse than a page that forgets.
+ */
+describe("store counts", () => {
+  it("is empty before anything was stored", () => {
+    expect(loadStoreCounts()).toEqual({});
+  });
+
+  it("round-trips a map through storage", () => {
+    saveStoreCounts(new Map([["epic", 104], ["microsoft", 608]]));
+    expect(loadStoreCounts()).toEqual({ epic: 104, microsoft: 608 });
+  });
+
+  it("survives a corrupt entry", () => {
+    window.localStorage.setItem("unifideck:store-counts:v1", "{not json");
+    expect(loadStoreCounts()).toEqual({});
+  });
+
+  it("survives a stored value that is not an object", () => {
+    window.localStorage.setItem("unifideck:store-counts:v1", '"epic"');
+    expect(loadStoreCounts()).toEqual({});
+  });
+
+  it("drops entries that are not usable counts", () => {
+    // A string here would reach a subtraction and surface as NaN in the
+    // banner, which reads as a bug in the count rather than in the storage.
+    window.localStorage.setItem(
+      "unifideck:store-counts:v1",
+      JSON.stringify({ epic: 104, gog: "molti", amazon: -3, ubisoft: null }),
+    );
+    expect(loadStoreCounts()).toEqual({ epic: 104 });
+  });
+
+  it("does not use the same key as the filters", () => {
+    // They have different lifetimes: one corrupt value must not reset both.
+    saveStoreCounts(new Map([["epic", 104]]));
     expect(loadFilters()).toEqual(DEFAULT_FILTERS);
   });
 });

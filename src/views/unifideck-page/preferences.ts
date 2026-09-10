@@ -98,3 +98,57 @@ export function saveFilters(filters: StoredFilters): void {
     // Private mode, quota, a storage-less realm — all survivable.
   }
 }
+
+/**
+ * Last known games-per-store, so the page can notice a library that shrank.
+ *
+ * Separate key from the filters: the two have different lifetimes and a
+ * malformed value in one must not cost the other. This one is also written
+ * far more often, and a filter reset because a count failed to parse would be
+ * the kind of bug that looks like the page "forgetting" at random.
+ */
+const COUNTS_KEY = "unifideck:store-counts:v1";
+
+/** The counts last seen by this device. `{}` when nothing was stored yet. */
+export function loadStoreCounts(): Record<string, number> {
+  let raw: string | null = null;
+  try {
+    raw = window.localStorage?.getItem(COUNTS_KEY) ?? null;
+  } catch {
+    return {};
+  }
+  if (!raw) return {};
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (typeof parsed !== "object" || parsed === null) return {};
+    // Values are filtered rather than trusted: `detectShrink` tolerates a
+    // non-number, but everything downstream reads these as counts and a
+    // string that survives to a subtraction becomes NaN in a banner.
+    const out: Record<string, number> = {};
+    for (const [store, n] of Object.entries(parsed as Record<string, unknown>)) {
+      if (typeof n === "number" && Number.isFinite(n) && n >= 0) out[store] = n;
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Record the counts as the new baseline.
+ *
+ * Call this only once the user has *seen* the state — recording on every
+ * render would move the baseline down to the shrunken library and the warning
+ * would disappear on the next visit, which is the failure this whole thing
+ * exists to prevent.
+ */
+export function saveStoreCounts(counts: ReadonlyMap<string, number>): void {
+  try {
+    window.localStorage?.setItem(
+      COUNTS_KEY,
+      JSON.stringify(Object.fromEntries(counts)),
+    );
+  } catch {
+    // Same as above: never worth a crash.
+  }
+}
