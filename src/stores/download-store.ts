@@ -21,14 +21,55 @@ import { call, toaster } from "@decky/api";
 import i18n from "i18next";
 import { rpcRoutes } from "../api/rpc-routes";
 import { unwrapRpcEnvelope } from "../api/useRPC";
+import type { EventName } from "../types/events";
 import { EventBusClient } from "../api/event-bus-client";
 import { invalidateGameInfo } from "../hooks/useGameInfo";
 import { bumpGameStateVersion } from "../lib/game-state-version";
+import { invalidateGameSize } from "../lib/game-size-cache";
 import { friendlyDownloadError } from "../lib/download-errors";
 import { launchUbisoftInstallViaShortcut } from "../utils/ubisoftShortcutLaunch";
+import { launchBattlenetInstallViaShortcut } from "../utils/battlenetShortcutLaunch";
+
+/**
+ * Wrapper stores whose install flow needs the frontend to open their vendor
+ * client. `[event, launcher, label]` — adding EA App is one more row.
+ */
+const WRAPPER_INSTALL_LAUNCHERS: ReadonlyArray<
+  readonly [
+    EventName,
+    (storeGameId: string) => Promise<{ success: boolean; error?: string }>,
+    string,
+  ]
+> = [
+  [
+    "ubisoft_install_launch_requested",
+    (id) =>
+      launchUbisoftInstallViaShortcut(id, {
+        UNIFIDECK_UBISOFT_ACTION: "install",
+      }),
+    "Ubisoft UPC",
+  ],
+  [
+    "battlenet_install_launch_requested",
+    launchBattlenetInstallViaShortcut,
+    "Battle.net",
+  ],
+];
 import type { DownloadItem, DownloadQueueInfo } from "../types/downloads";
 
 // ── Helpers (moved from DownloadContext) ─────────────────
+
+/** Pull the queue item out of any `DOWNLOAD_*` payload.
+ *  All of them carry the same `item` the `get_download_queue` RPC
+ *  returns, so no field translation is needed — and `item.id` is
+ *  already the `"<store>:<game_id>"` string the backend builds. */
+function extractItem(payload: unknown): DownloadItem | null {
+  if (!payload || typeof payload !== "object") return null;
+  const item = (payload as { item?: unknown }).item;
+  if (!item || typeof item !== "object") return null;
+  const id = (item as { id?: unknown }).id;
+  return typeof id === "string" && id ? (item as DownloadItem) : null;
+}
 
 /** Pull the appId out of a DOWNLOAD_* terminal event payload. */
 function extractAppId(payload: unknown): number | null {
@@ -48,18 +89,9 @@ function extractFailure(payload: unknown): {
   title?: string;
 } {
   if (!payload || typeof payload !== "object") return {};
-  const item = (
-    payload as { item?: { error_message?: unknown; game_title?: unknown } }
-  ).item;
-  const itemError =
-    item && typeof item === "object"
-      ? (item as { error_message?: unknown }).error_message
-      : undefined;
+  const item = extractItem(payload);
+  const itemError = item?.error_message;
   const topError = (payload as { error?: unknown }).error;
-  const title =
-    item && typeof item === "object"
-      ? (item as { game_title?: unknown }).game_title
-      : undefined;
   return {
     error:
       typeof itemError === "string" && itemError
@@ -67,20 +99,33 @@ function extractFailure(payload: unknown): {
         : typeof topError === "string"
         ? topError
         : undefined,
-    title: typeof title === "string" ? title : undefined,
+    title: typeof item?.game_title === "string" ? item.game_title : undefined,
   };
 }
 
-/** Build the `"<store>:<game_id>"` key from a terminal payload. */
-function extractStoreGameId(payload: unknown): string | null {
-  if (!payload || typeof payload !== "object") return null;
-  const item = (payload as { item?: { store?: unknown; game_id?: unknown } })
-    .item;
-  if (!item || typeof item !== "object") return null;
-  const store = (item as { store?: unknown }).store;
-  const gameId = (item as { game_id?: unknown }).game_id;
-  if (typeof store !== "string" || typeof gameId !== "string") return null;
-  return `${store}:${gameId}`;
+/**
+ * Merge a `download_progress` payload into the snapshot.
+ *
+ * Returns `prev` *unchanged* — the same object, so `useSyncExternalStore`
+ * skips the re-render — whenever the event doesn't describe the row on
+ * screen. The previous version wrote every progress event onto
+ * `queue.current` without checking whose it was, which is only harmless
+ * while the backend's `max_concurrent` is 1.
+ *
+ * Exported for unit tests: this is pure, the surrounding store is not.
+ */
+export function mergeProgressIntoSnapshot(
+  prev: DownloadSnapshot,
+  payload: unknown,
+): DownloadSnapshot {
+  const queue = prev.queue;
+  const item = extractItem(payload);
+  if (!queue || !queue.current || !item) return prev;
+  if (queue.current.id !== item.id) return prev;
+  return {
+    ...prev,
+    queue: { ...queue, current: { ...queue.current, ...item } },
+  };
 }
 
 /** Normalise the backend's queue shape to the frontend DTO. */
@@ -124,7 +169,7 @@ class DownloadStoreImpl {
   private _snapshot: DownloadSnapshot = { queue: null, loading: true };
   private _listeners = new Set<Listener>();
   private _unsubs: (() => void)[] = [];
-  private _ubisoftLaunched = new Set<string>();
+  private _wrapperLaunched = new Set<string>();
 
   /** Start subscriptions and initial fetch. */
   start(): void {
@@ -143,23 +188,7 @@ class DownloadStoreImpl {
 
     this._unsubs.push(
       EventBusClient.subscribe("download_progress", (payload) => {
-        this._setSnapshot((prev) => ({
-          ...prev,
-          queue: prev.queue && {
-            ...prev.queue,
-            current: prev.queue.current && {
-              ...prev.queue.current,
-              progress_percent:
-                (payload.progress as number) ??
-                prev.queue.current.progress_percent,
-              speed_mbps:
-                (payload.speed_mbps as number) ?? prev.queue.current.speed_mbps,
-              eta_seconds:
-                (payload.eta_seconds as number) ??
-                prev.queue.current.eta_seconds,
-            },
-          },
-        }));
+        this._setSnapshot((prev) => mergeProgressIntoSnapshot(prev, payload));
       }),
     );
 
@@ -168,9 +197,16 @@ class DownloadStoreImpl {
       if (appId != null) {
         invalidateGameInfo(appId);
         bumpGameStateVersion(appId);
+        // An install/update that just ended moved the game's bytes on disk.
+        // The install-state flip covers a first install; this also covers an
+        // update, where `installed` never changes and nothing else would tell
+        // the size caches to forget.
+        invalidateGameSize(appId);
       }
-      const storeGameId = extractStoreGameId(payload);
-      if (storeGameId) this._ubisoftLaunched.delete(storeGameId);
+      // `item.id` is the same `"<store>:<game_id>"` key the wrapper-install
+      // signal sends as `store_game_id`, so it clears the dedup entry.
+      const itemId = extractItem(payload)?.id;
+      if (itemId) this._wrapperLaunched.delete(itemId);
       void this._fetchQueue();
     };
 
@@ -204,30 +240,59 @@ class DownloadStoreImpl {
       EventBusClient.subscribe("download_cancelled", onTerminal),
     );
 
-    // Ubisoft install — open UPC via Steam's RunGame
+    // The authoritative install-state signal, and the reason `onTerminal`'s
+    // invalidation above is not sufficient on its own.
+    //
+    // DOWNLOAD_COMPLETE is emitted *before* the backend runs its post-install
+    // hook, and that hook is where the shortcut actually flips to installed.
+    // The two are far apart on the Epic path: measured 16:21:09.720 ->
+    // 16:21:15.645, **5.9 s**, installing Among Us. So the refetch that
+    // `onTerminal` triggers asks the backend before it has flipped anything
+    // and caches `is_installed: false`. `usePlaySection` then renders
+    // "Install" for a game that is fully installed, and nothing corrects it,
+    // because a terminal download event only ever arrives once — the page had
+    // to be closed and reopened to remount the hook and refetch.
+    //
+    // `mark_installed` emits this event once the flip has actually happened,
+    // so it is the point at which the cached answer is worth throwing away.
+    // Sizes are already invalidated for this event in `library-filters`; the
+    // per-game info cache and state version are what nothing else touches.
     this._unsubs.push(
-      EventBusClient.subscribe(
-        "ubisoft_install_launch_requested",
-        (payload) => {
+      EventBusClient.subscribe("shortcut_install_state_changed", (payload) => {
+        const appId = (payload as { app_id?: unknown }).app_id;
+        if (typeof appId !== "number") return;
+        invalidateGameInfo(appId);
+        bumpGameStateVersion(appId);
+      }),
+    );
+
+    // Wrapper-store installs — open the vendor client via Steam's RunGame.
+    // The backend cannot spawn it: in Gaming Mode a bare subprocess has no
+    // gamescope session and the window never appears.
+    //
+    // One subscription per store, built from a table so adding EA App is a
+    // row rather than another copy of this block. The dedup set is shared
+    // because the key is the full `store:game_id`.
+    for (const [event, launch, label] of WRAPPER_INSTALL_LAUNCHERS) {
+      this._unsubs.push(
+        EventBusClient.subscribe(event, (payload) => {
           const storeGameId = (payload as { store_game_id?: unknown })
             .store_game_id;
           if (typeof storeGameId !== "string" || !storeGameId) return;
-          if (this._ubisoftLaunched.has(storeGameId)) return;
-          this._ubisoftLaunched.add(storeGameId);
-          void launchUbisoftInstallViaShortcut(storeGameId, {
-            UNIFIDECK_UBISOFT_ACTION: "install",
-          }).then((result) => {
+          if (this._wrapperLaunched.has(storeGameId)) return;
+          this._wrapperLaunched.add(storeGameId);
+          void launch(storeGameId).then((result) => {
             if (!result.success) {
-              this._ubisoftLaunched.delete(storeGameId);
+              this._wrapperLaunched.delete(storeGameId);
               console.error(
-                "[DownloadStore] Ubisoft UPC RunGame failed:",
+                `[DownloadStore] ${label} RunGame failed:`,
                 result.error,
               );
             }
           });
-        },
-      ),
-    );
+        }),
+      );
+    }
   }
 
   /** Stop all subscriptions. */

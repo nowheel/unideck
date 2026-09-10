@@ -8,12 +8,14 @@
  *   404 MB / 564 MB         19.6 MB/s · ETA 00:00:08
  *
  * Indeterminate phases (``extracting`` / ``verifying``) hide
- * the byte counter and show ``phase_message`` (or the i18n
+ * the byte counter and show the localized phase label (the i18n
  * fallback) so the user still has a textual signal.
  */
 import { FC, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import type { DownloadItem, DownloadPhase } from "../../types/downloads";
+import type { StoreId } from "../../types/api";
+import { STORE_VISUALS } from "../../types/store";
 import { formatBytes } from "../play/PlayMeta";
 import { injectPlayFocusStyles } from "../play/play.css";
 
@@ -43,14 +45,26 @@ function isIndeterminate(phase: DownloadPhase | undefined): boolean {
   );
 }
 
+/**
+ * Display name of the vendor client driving a `manual` install.
+ *
+ * The `manual` phase belongs to every wrapper store, not just Ubisoft, so
+ * the label has to name the client the user is actually being sent to — a
+ * Battle.net install used to say "Installing Ubisoft Connect". Reads the
+ * single source of truth for store branding rather than a second map.
+ */
+function clientName(store: StoreId | undefined): string {
+  return (store && STORE_VISUALS[store]?.display_name) || "";
+}
+
 function statusLabelKey(
   status: DownloadItem["status"],
   phase: DownloadPhase | undefined,
   prev: boolean,
 ): string {
-  // Ubisoft (UPC-driven) installs: no real download — show a dedicated
-  // label and let the indeterminate path render the phase_message.
-  if (phase === "manual") return "downloadsTab.installingViaUpcLabel";
+  // Wrapper-store (vendor-client-driven) installs: no real download — show
+  // a dedicated label and let the indeterminate path render the detail.
+  if (phase === "manual") return "downloadsTab.installingViaClientLabel";
   if (phase === "preparing") return "downloadsTab.preparingLabel";
   if (phase === "extracting") return "downloadsTab.extractingLabel";
   if (phase === "verifying") return "downloadsTab.verifyingLabel";
@@ -78,12 +92,16 @@ export const DownloadProgressRow: FC<Props> = ({
   const indeterminate = isIndeterminate(download.download_phase);
   const pct = Math.max(0, Math.min(100, download.progress_percent));
   const prev = Boolean(download.is_update);
+  const client = clientName(download.store);
   const label = t(
     statusLabelKey(download.status, download.download_phase, prev),
+    { client },
   );
   // Indeterminate detail line: rendered purely from phase (+ percent) so it
-  // is always localized. The backend's ``phase_message`` is hardcoded English
-  // and is deliberately NOT displayed — see DownloadsTab i18n.
+  // is always localized. The backend used to also send a ``phase_message``
+  // of hardcoded English that was deliberately never displayed; it carried
+  // from nine producers through the queue item to this component and was
+  // deleted end to end (audit register item 45).
   const phase = download.download_phase;
   const detail =
     phase === "preparing"
@@ -93,7 +111,7 @@ export const DownloadProgressRow: FC<Props> = ({
       : phase === "verifying"
       ? t("downloadsTab.verifyingMessage", { pct: pct.toFixed(1) })
       : phase === "manual"
-      ? t("downloadsTab.installingViaUpcMessage")
+      ? t("downloadsTab.installingViaClientMessage", { client })
       : t("downloadsTab.finalizingInstallation");
 
   return (

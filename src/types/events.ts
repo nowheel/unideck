@@ -63,8 +63,8 @@ export const Events = {
   // by the download worker once the per-game prefix is bootstrapped.
   // Payload: { store_game_id: "ubisoft:<game_id>" }.
   UBISOFT_INSTALL_LAUNCH_REQUESTED: "ubisoft_install_launch_requested",
+  BATTLENET_INSTALL_LAUNCH_REQUESTED: "battlenet_install_launch_requested",
   // Game state
-  GAME_INSTALLED: "game_installed",
   GAME_UNINSTALLED: "game_uninstalled",
   GAME_UPDATE_AVAILABLE: "game_update_available",
   GAME_LAUNCHED: "game_launched",
@@ -75,7 +75,6 @@ export const Events = {
   CLOUD_SYNC_UP_COMPLETE: "cloud_sync_up_complete",
   CLOUD_SYNC_UP_FAILED: "cloud_sync_up_failed",
   // Errors and toasts
-  STORE_ERROR: "store_error",
   LAUNCHER_STAGE: "launcher_stage",
   CIRCUIT_STATE_CHANGED: "circuit_state_changed",
 } as const;
@@ -100,6 +99,18 @@ export interface ToastActionPayload {
   /** Optional bold title rendered above `i18n_key`'s message. */
   i18n_title_key?: string;
   i18n_params?: Record<string, unknown>;
+  /** Resolved game title. Merged into the i18n params as `gameTitle`. */
+  game_title?: string;
   duration_ms?: number;
-  action?: { verb: string; args: string[] };
+  /**
+   * One-click remediation offered with the toast.
+   *
+   * `i18n_label_key` names it. Two producers emit this: the cloud-save
+   * conflict path (which also sends `local_snapshot`/`remote_snapshot`, and
+   * is rendered as a pick modal) and `cloud_failure` (transient failures,
+   * rendered as a clickable toast). Both use this one shape — a second
+   * `{i18n_label_key, target_url}` form existed until 2026-08-26 and would
+   * have read `undefined` here (audit register item 4b).
+   */
+  action?: { verb: string; args: string[]; i18n_label_key?: string };
 }

@@ -75,6 +75,9 @@ export interface DownloadItem {
   end_time?: number;
   error_message?: string;
   download_phase?: DownloadPhase;
+  /** A wrapper store's explanation of why nothing is moving (e.g. Battle.net
+   *  "queued behind the updater"). Sent by the backend, **not yet rendered** —
+   *  it is English, so displaying it needs an i18n decision. Audit item 49. */
   phase_message?: string;
   /** True when this entry is an update of an already-installed
    *  game (enqueued via `update_game`), false for a fresh install.
@@ -101,6 +104,10 @@ export interface StorageLocationInfo {
   id: StorageLocation;
   label: string;
   path: string;
+  /** Device root this location sits on — the mount point for an
+   *  external drive. Used by the backend to recognise ids saved under
+   *  an older scheme; the UI has no reason to read it. */
+  device_path?: string;
   available: boolean;
   free_space_gb: number;
 }

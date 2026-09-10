@@ -14,7 +14,7 @@ import { gameId } from "../../lib/game-identity";
 import { getCompatByShortcutAppId } from "../../lib/library-facets";
 import {
   getCachedCompatByTitle,
-  meetsGreatOnDeckCriteria,
+  meetsGreatOnCurrentDevice,
 } from "../../lib/protondb-cache";
 import type { GameCompatInfo } from "../../lib/protondb-cache";
 import type { Game, StoreId } from "../../types/api";
@@ -140,7 +140,7 @@ export function compatFor(game: Game): GameCompatInfo | null {
 
 /** Whether a game clears the Great-on-Deck bar. */
 export function isGreatOnDeck(game: Game): boolean {
-  return meetsGreatOnDeckCriteria(compatFor(game));
+  return meetsGreatOnCurrentDevice(compatFor(game));
 }
 
 /**

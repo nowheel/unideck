@@ -33,6 +33,8 @@ import {
 import { AccountSwitchModal, SteamRestartModal } from "./components/modals";
 import { uploadSteamOwnedTitles } from "./lib/steam-bridge/owned-library";
 import { uploadActiveSteamUser } from "./lib/steam-bridge/active-user";
+import { loadDeviceType } from "./lib/device-type";
+import { tabManager } from "./lib/steam-bridge/tab-container";
 import type { Unregisterable } from "./types/steam";
 /** Language pref — the `data` payload of `get_language_preference`
  *  after the `{success, error, data}` envelope is unwrapped.
@@ -97,6 +99,28 @@ export async function applyLanguagePreference(): Promise<void> {
  * @returns a promise resolving once the check (and
  *   any required cache clear) is done.
  */
+/**
+ * Bootstrap task : resolve the device class and re-title the
+ * compatibility tab to name the actual hardware.
+ *
+ * Rebuilds only when the value actually changed. Note the cached
+ * default is `"other"`, not `"deck"` — so on a real Deck this DOES
+ * change once at boot and costs one rebuild. That is deliberate: a
+ * device whose RPC never answers then shows the neutral SteamOS
+ * wording rather than confidently claiming to be a Deck, which on a
+ * Steam Machine would be a wrong device name.
+ */
+export async function applyDeviceType(): Promise<void> {
+  try {
+    const changed = await loadDeviceType();
+    if (changed && tabManager.isInitialized()) {
+      tabManager.rebuildTabs();
+    }
+  } catch {
+    // Non-fatal — the neutral "other" default label stays.
+  }
+}
+
 export async function checkAccountSwitch(): Promise<void> {
   try {
     const r = await call<[], AccountSwitchInfo>(rpcRoutes.checkAccountSwitch);
@@ -124,7 +148,7 @@ export async function checkAccountSwitch(): Promise<void> {
  * Bootstrap task : install the singleton Steam
  * lifetime listener that drives the Unifideck game
  * runner. Returns the disposer used by
- * `runTeardown` (OP-79) on plugin shutdown.
+ * `runTeardown` on plugin shutdown.
  *
  * @returns a disposer that detaches the listener.
  */
@@ -170,7 +194,12 @@ export function purgeLeftoverAuthShortcuts(): void {
           m_mapApps?: {
             forEach?: (
               cb: (
-                app: { LaunchOptions?: unknown; launch_options?: unknown },
+                app: {
+                  LaunchOptions?: unknown;
+                  launch_options?: unknown;
+                  display_name?: unknown;
+                  appname?: unknown;
+                },
                 id: number,
               ) => void,
             ) => void;
@@ -186,19 +215,25 @@ export function purgeLeftoverAuthShortcuts(): void {
       "amazon:amazon-auth",
       "microsoft:ms-auth",
     ];
-    const victims: number[] = [];
+    // No ownership gate is possible here: `m_mapApps` entries carry no
+    // Exe/target field, so unlike every backend sweep this one cannot
+    // prove a shortcut is ours. The four prefixes are specific enough
+    // that the residual risk is small, but log the name we are about to
+    // remove so the action is auditable from a support bundle.
+    const victims: { appId: number; name: unknown }[] = [];
     map.forEach((app, appId) => {
       const lo = app?.LaunchOptions ?? app?.launch_options;
       if (typeof lo !== "string") return;
       if (stalePrefixes.some((p) => lo.startsWith(p))) {
-        victims.push(appId);
+        victims.push({ appId, name: app?.display_name ?? app?.appname });
       }
     });
     const steamApps = window.SteamClient?.Apps;
     if (!steamApps?.RemoveShortcut) return;
-    for (const appId of victims) {
+    for (const { appId, name } of victims) {
       console.log(
-        `[Bootstrap] Removing leftover persistent auth shortcut appId=${appId}`,
+        `[Bootstrap] Removing leftover persistent auth shortcut ` +
+          `appId=${appId} name=${JSON.stringify(name ?? null)}`,
       );
       try {
         steamApps.RemoveShortcut(appId);
@@ -295,8 +330,12 @@ export async function runBootstrapTasks(): Promise<Unregisterable | null> {
   // 100%-correct source of the active account, and everything below (account-
   // switch check, owned-titles, any sync) must target the right userdata dir.
   await uploadActiveSteamUser();
-  const [, , , , listener] = await Promise.all([
+  const [, , , , , listener] = await Promise.all([
     applyLanguagePreference(),
+    // Name the compatibility tab after the actual hardware. Defaults to
+    // "deck", so a failure here leaves the pre-existing label rather
+    // than blanking the tab.
+    applyDeviceType(),
     checkAccountSwitch(),
     // Seed the owned-Steam-library snapshot early so a backend-triggered
     // (auto) sync can hide Steam-linked Ubisoft games before the user's
