@@ -57,6 +57,36 @@ else
   echo "   ! nostri-py.txt non trovato in $ORIG — installo solo il bundle" >&2
 fi
 
+# Le dipendenze vendored di monte sono wheel compilate per il Python di
+# SteamOS (cpython-311). Questo Deck non gira SteamOS ma CachyOS, che ha
+# Python 3.14: rpds.rpds non si carica, quindi jsonschema non si importa e
+# il plugin parte in modalita' degradata a ogni avvio. Non e' un difetto di
+# monte — sulla piattaforma per cui ha buildato quelle wheel vanno bene.
+#
+# CachyOS ha gia' python-jsonschema e le sue dipendenze come pacchetti di
+# sistema, e bastano: il validator usa Draft7Validator, stabile in tutta la
+# serie 4.x. Tolte le copie vendored, Python le trova in site-packages.
+#
+# Il test e' funzionale e non euristico sul tag ABI: si prova l'import come
+# lo farebbe il plugin, e si tocca qualcosa solo se fallisce E il sistema
+# offre un rimpiazzo che funziona. Su SteamOS il primo controllo passa e
+# questo blocco non fa nulla.
+PY="$(command -v python3 || echo /usr/bin/python)"
+VENDORED_JSONSCHEMA=(rpds referencing jsonschema jsonschema_specifications)
+if ! "$PY" -c "import sys; sys.path.insert(0, '$PLUGIN/py_modules'); import jsonschema" 2>/dev/null; then
+  if "$PY" -c "import jsonschema, rpds" 2>/dev/null; then
+    echo "→ jsonschema vendored incompatibile con $("$PY" -V) — uso quello di sistema"
+    mkdir -p "$BACKUP/py_modules-vendored"
+    for pkg in "${VENDORED_JSONSCHEMA[@]}"; do
+      [[ -d "$PLUGIN/py_modules/$pkg" ]] || continue
+      mv "$PLUGIN/py_modules/$pkg" "$BACKUP/py_modules-vendored/$pkg"
+      echo "   ✓ rimosso $pkg (nel backup)"
+    done
+  else
+    echo "   ! jsonschema vendored rotto e il sistema non ne ha uno — resta degradato" >&2
+  fi
+fi
+
 echo "→ Riavvio di decky-loader"
 systemctl restart decky-loader@deck.service
 
