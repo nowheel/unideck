@@ -11,6 +11,7 @@
  * path is best-effort, an uncaught exception leaves the
  * plugin in a half-loaded state until the next reboot.
  */
+import { routerHook } from "@decky/api";
 import type { RouterPatchHandle } from "./lib/steam-bridge";
 import type { CollectionManagerHandle } from "./lib/steam-bridge/collection-manager";
 import type { Unregisterable } from "./types/steam";
@@ -78,6 +79,14 @@ const DISPOSERS: Record<keyof TeardownHandles, (h: TeardownHandles) => void> = {
   overviewEnrichment: (h) => h.overviewEnrichment?.(),
   collectionManager: (h) => h.collectionManager?.remove(),
   libraryPatch: (h) => h.libraryPatch?.remove(),
+  // Divergenza da monte — NOSTRI in riapplica.sh.
+  // La rotta `/unifideck` è nostra, quindi monte non ha nulla da rimuovere
+  // qui. Saltarla lascia una rotta che punta al componente di un plugin
+  // smontato: sopravvive ai reload del ciclo di sviluppo, esattamente come i
+  // router patch che questa tabella esiste per non dimenticare.
+  unifideckRoute: (h) => {
+    if (h.unifideckRoute) routerHook.removeRoute(h.unifideckRoute);
+  },
   // Same failure mode: its window listener and SHORTCUT_INSTALL_STATE_CHANGED
   // subscription had no disposer at all until this table existed.
   cacheAutoload: (h) => h.cacheAutoload?.(),

@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 import { describe, it, expect } from "vitest";
 import type { ReactElement } from "react";
 import { StoreIcon } from "./StoreIcon";

@@ -22,6 +22,14 @@ const stops = {
   storeInfo: vi.fn(),
 };
 
+// Divergenza da monte — NOSTRI in riapplica.sh.
+// Solo la nostra rotta `/unifideck` passa da routerHook in teardown, quindi
+// monte non ha bisogno di questo mock. Senza, l'import di `@decky/api` in
+// teardown.ts fa fallire l'intero file sotto vitest: `@decky/manifest` non
+// esiste fuori dal bundle Decky.
+const removeRoute = vi.hoisted(() => vi.fn());
+vi.mock("@decky/api", () => ({ routerHook: { removeRoute } }));
+
 vi.mock("./stores/sync-store", () => ({ syncStore: { stop: () => stops.sync() } }));
 vi.mock("./stores/download-store", () => ({
   downloadStore: { stop: () => stops.download() },
@@ -37,9 +45,15 @@ vi.mock("./stores/store-info-store", () => ({
 function buildHandles() {
   const calls: Record<string, ReturnType<typeof vi.fn>> = {};
   const fn = (name: string) => (calls[name] = vi.fn());
+  // Divergenza da monte — NOSTRI in riapplica.sh.
+  // `unifideckRoute` è una stringa, non un handle con un disposer proprio:
+  // a rimuoverla è routerHook, quindi la spia sta lì. Registrarla comunque in
+  // `calls` la tiene dentro il controllo di copertura sotto.
+  calls.unifideckRoute = removeRoute;
   return {
     calls,
     handles: {
+      unifideckRoute: "/unifideck",
       routerPatch: { remove: fn("routerPatch") },
       cacheAutoload: fn("cacheAutoload"),
       libraryPatch: { remove: fn("libraryPatch") },
@@ -58,6 +72,7 @@ function buildHandles() {
 
 beforeEach(() => {
   Object.values(stops).forEach((s) => s.mockReset());
+  removeRoute.mockReset();
 });
 
 describe("runTeardown", () => {

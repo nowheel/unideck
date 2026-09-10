@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 /**
  * Regression: connecting GameVault must trigger the post-login sync.
  *

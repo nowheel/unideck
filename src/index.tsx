@@ -23,7 +23,6 @@
  * is the safety net.
  */
 import { definePlugin, routerHook } from "@decky/api";
-import { FaGamepad } from "react-icons/fa";
 import { FC } from "react";
 import { initI18n } from "./i18n";
 import { SteamBridge } from "./lib/steam-bridge";

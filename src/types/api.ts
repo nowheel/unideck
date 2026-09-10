@@ -74,6 +74,11 @@ export interface GameMetadata {
   cloud_saves?: boolean | null;
 }
 
+// Divergenza da monte — NOSTRI in riapplica.sh.
+// Monte dichiara `id` e `is_installed` come obbligatori; le righe grezze di
+// `get_all_unifideck_games` non li portano affatto, e leggerli lì restituisce
+// `undefined` in silenzio. Qui sono opzionali e ogni campo dice quale delle due
+// forme lo fornisce, così il compilatore obbliga a passare dagli helper.
 /**
  * Universal `Game` representation aggregated from any store.
  *
@@ -142,6 +147,10 @@ export interface Game {
   metadata?: Record<string, unknown>;
 }
 
+// Divergenza da monte — NOSTRI in riapplica.sh.
+// Il campo `deck_rating` delle righe grezze; monte non lo dichiara.
+export type DeckRating = "verified" | "playable" | "unsupported" | "unknown";
+
 /** One achievement (definition + this user's unlock status). */
 export interface Achievement {
   key: string;
@@ -170,48 +179,140 @@ export interface GameAchievements {
 export interface LastSessionAchievements {
   names: string[];
   unlocked: number;
-  percent: number;
-  date: number;
+  total: number;
+  /** Epoch seconds the session ended. */
+  at: number;
 }
 
-/** A streaming session log (from `get_session_resume_data`). */
-export interface PlaySession {
-  /** Unix epoch seconds, 1970 UTC. */
-  start_time: number;
-  playtime_seconds: number;
-}
-
-export type StoreId = "steam" | "epic" | "gog" | "ubisoft" | "amazon" | "microsoft" | "battlenet" | "gamevault";
-export type GameTag = string;
-export type OwnershipType = string;
-export type DeckRating = string;
-
-/** Auth status per store */
-export type StoreStatus = "connected" | "error" | "authenticating" | "disconnected";
-
-/** Authentication result from backend */
-export interface AuthResult {
+/** Common wrapper for every RPC method's response. */
+export interface Result {
   success: boolean;
-  store?: StoreId;
-  message?: string;
-  error?: string;
-  auth_url?: string;
-}
-
-/** Generic result wrapper */
-export interface Result<T> {
-  success: boolean;
-  data?: T;
   error?: string;
 }
 
-/** Store connection info */
-export interface StoreInfo {
+/** Auth start/complete/logout response. */
+export interface AuthResult extends Result {
+  url?: string;
+  token?: string;
   store: StoreId;
-  status: StoreStatus;
-  name?: string;
-  display_name?: string;
-  username?: string;
-  last_sync?: number;
-  supports_cloud_saves?: boolean;
 }
+
+/** Install completion response. */
+export interface InstallResult extends Result {
+  install_path?: string;
+  game_id: string;
+  size_mb?: number;
+  store: StoreId;
+}
+
+/** Sync run summary. */
+export interface SyncResult extends Result {
+  games: Game[];
+  store: StoreId;
+  count: number;
+  duration_ms: number;
+}
+
+/** Download progress snapshot. */
+export interface DownloadResult extends Result {
+  progress: number;
+  game_id: string;
+  store: StoreId;
+  queued: boolean;
+}
+
+/**
+ * One entry of the `get_store_infos` payload.
+ *
+ * This interface used to declare `icon` and `auth_status`, **neither of
+ * which the backend has ever sent** — `StoreInfo` carries `icon_asset`, and
+ * auth state comes from the separate `check_store_status` route keyed by
+ * `store_id`. Four fields that *were* sent went undeclared. A type that
+ * matches an unread payload is still a lie, so this now mirrors the wire
+ * shape exactly (audit register item 26).
+ *
+ * The `supports_*` / `has_*` flags are derived server-side from
+ * `core/store_capabilities.py` and are the reason the frontend no longer
+ * hand-maintains its own per-store lists — the audit found sixteen of those
+ * with a single machine-checked pair between them. Read a capability off
+ * here (see `useStoreCapability`) rather than writing a new `Set([...])`.
+ */
+export interface StoreInfo {
+  name: StoreId;
+  display_name: string;
+  auth_method: string;
+  icon_asset: string;
+  supports_install: boolean;
+  available: boolean;
+  client_runs_in_prefix: boolean;
+  supports_achievements: boolean;
+  supports_cloud_saves: boolean;
+  has_language_picker: boolean;
+  has_browser_storefront: boolean;
+}
+
+/** Capability keys carried by {@link StoreInfo}. */
+export type StoreCapability =
+  | "supports_install"
+  | "supports_achievements"
+  | "supports_cloud_saves"
+  | "has_language_picker"
+  | "has_browser_storefront"
+  | "client_runs_in_prefix";
+
+/**
+ * Discriminator for which store a Game/Auth/Download
+ * payload comes from.
+ *
+ * The set is closed on purpose : every backend route
+ * accepting a store argument validates against this
+ * union and rejects anything else. Adding a 6th store
+ * therefore requires a coordinated change in both
+ * `core/types/events.py` (StoreEnum) and this file.
+ */
+export type StoreId =
+  | "steam"
+  | "epic"
+  | "gog"
+  | "amazon"
+  | "microsoft"
+  | "ubisoft"
+  | "battlenet"
+  | "gamevault";
+
+/**
+ * Per-store availability + auth state, returned by
+ * `check_store_status` RPC. The frontend uses it to
+ * decide whether to show a Connect button, a Sync
+ * button, or a re-auth prompt.
+ *
+ *  - `unauthenticated` : no token present
+ *  - `authenticated`   : token valid, ready to sync
+ *  - `error`           : token rejected by the store API
+ *  - `unavailable`     : store CLI / Wine prefix missing
+ */
+export type StoreStatus = "connected" | "disconnected" | "expired" | "error";
+
+/**
+ * How the user owns a given title. Discriminates
+ * subscription games (xCloud, Game Pass) from
+ * purchased ones, which matters for badge display
+ * and uninstall confirmation copy.
+ */
+export type OwnershipType = "owned" | "subscription" | "trial";
+
+/**
+ * Tag attached to a Game by its store. Drives the
+ * coloured pill rendered in `GameInfoMetadata`. Tags
+ * are additive : a game can carry several at once
+ * (e.g. `dlc` + `early-access`).
+ */
+export type GameTag =
+  | "demo"
+  | "addon"
+  | "dlc"
+  | "preorder"
+  | "early_access"
+  // Xbox Cloud Gaming title — streamed in a browser, never installed.
+  // Drives the "Play on Cloud" play-section variant.
+  | "xcloud";
