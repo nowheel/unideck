@@ -181,7 +181,37 @@ export interface PlaySession {
   playtime_seconds: number;
 }
 
-export type StoreId = "steam" | "epic" | "gog" | "ubisoft" | "amazon" | "microsoft";
+export type StoreId = "steam" | "epic" | "gog" | "ubisoft" | "amazon" | "microsoft" | "battlenet" | "gamevault";
 export type GameTag = string;
 export type OwnershipType = string;
 export type DeckRating = string;
+
+/** Auth status per store */
+export type StoreStatus = "connected" | "error" | "authenticating" | "disconnected";
+
+/** Authentication result from backend */
+export interface AuthResult {
+  success: boolean;
+  store?: StoreId;
+  message?: string;
+  error?: string;
+  auth_url?: string;
+}
+
+/** Generic result wrapper */
+export interface Result<T> {
+  success: boolean;
+  data?: T;
+  error?: string;
+}
+
+/** Store connection info */
+export interface StoreInfo {
+  store: StoreId;
+  status: StoreStatus;
+  name?: string;
+  display_name?: string;
+  username?: string;
+  last_sync?: number;
+  supports_cloud_saves?: boolean;
+}

@@ -1,5 +1,10 @@
 # unideck
 
+[![CI/CD](https://github.com/nowheel/unideck/actions/workflows/ci.yml/badge.svg)](https://github.com/nowheel/unideck/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/nowheel/unideck/branch/master/graph/badge.svg)](https://codecov.io/gh/nowheel/unideck)
+![Test Results](https://img.shields.io/badge/tests-367%2F367-brightgreen)
+![Version](https://img.shields.io/badge/version-0.7.5-blue)
+
 **A fork of [Unifideck](https://github.com/mubaraknumann/unifideck) by [@mubaraknumann](https://github.com/mubaraknumann).**
 
 Unifideck brings games from Epic, GOG, Amazon, Ubisoft and Xbox Cloud Gaming into

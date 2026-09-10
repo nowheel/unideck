@@ -29,6 +29,8 @@ export interface TeardownHandles {
   cacheAutoload?: (() => void) | null;
   libraryPatch?: RouterPatchHandle | null;
   collectionManager?: CollectionManagerHandle | null;
+  /** Path of the standalone page route, when registration succeeded. */
+  unifideckRoute?: string | null;
   appStorePatch?: { remove: () => void } | null;
   overviewEnrichment?: (() => void) | null;
   tileStoreBadgePatch?: (() => void) | null;
