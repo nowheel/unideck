@@ -39,6 +39,10 @@ NOSTRI=(
   src
   # L'elenco stesso: serve a installa-root.sh dentro $WORK/repo, non solo qui.
   nostri-py.txt
+  # File nostri che a monte non esistono. Vanno elencati proprio perche' sono
+  # nuovi: la base non li ha, quindi senza una voce qui il rebase li lascia
+  # fuori e spariscono. E' gia' successo al test di non-regressione.
+  schermata.mjs
   # Sviluppo: senza questi il rebase riporta la versione di monte e si perde
   # il collegamento a src/test-support/, gia' successo una volta.
   vitest.config.ts
