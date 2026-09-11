@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import time
 from pathlib import Path
 from typing import Any
@@ -40,6 +41,12 @@ STEAM_URL = "https://store.steampowered.com/api/featuredcategories"
 #: shorter spends the user's bandwidth to re-learn the same answer. The cache
 #: is also the offline story: a stale feed beats an empty page.
 TTL_SECONDS = 6 * 60 * 60
+
+#: Bumped whenever the shape of a cached entry changes — a corrected URL
+#: counts. Without it a fix ships and the cache keeps serving the broken
+#: payload for six hours, which looks exactly like the fix not working.
+#: Raised to 2 on 2026-09-11, when the Epic link was pointing at a 404.
+CACHE_VERSION = 2
 
 #: Past this the request is abandoned. The page renders without the feed
 #: rather than making the user wait on a storefront having a bad day.
@@ -112,18 +119,50 @@ def _epic_image(element: dict[str, Any]) -> str:
     return next(iter(by_type.values()), "")
 
 
+#: A 32-character hex blob is a catalog id, not a page slug. `urlSlug` holds
+#: one for some offers, and `/p/<id>` is a 404.
+_ID_LIKE = re.compile(r"^[0-9a-f]{32}$", re.I)
+
+
 def _epic_url(element: dict[str, Any]) -> str:
-    """Store page for the offer, when Epic gives us a slug to build one."""
-    slug = element.get("productSlug") or element.get("urlSlug")
-    if not slug:
-        mappings = element.get("offerMappings") or element.get("catalogNs", {}).get("mappings") or []
-        for m in mappings:
+    """Store page for the offer.
+
+    The slug is read from ``catalogNs.mappings`` / ``offerMappings`` **first**,
+    and only then from ``productSlug`` / ``urlSlug``. Measured on the live feed
+    2026-09-11, for all four giveaways of that week:
+
+        Luftrausers    urlSlug 'luftrausers'  → pageSlug 'luftrausers-51e5e9'
+        Astral Ascent  urlSlug 'd72ccf02…'    → pageSlug 'astral-ascent-b33bc2'
+
+    ``productSlug`` was ``None`` every time, ``urlSlug`` was sometimes a bare
+    catalog id, and even when it looked like a real slug it was missing the
+    suffix the store page actually lives at. Reading the top-level fields
+    first sent every link to a 404 — including the ones that looked right,
+    which is why the bug survived a first reading of the output.
+    """
+    candidates: list[str] = []
+    for source in (
+        (element.get("catalogNs") or {}).get("mappings") or [],
+        element.get("offerMappings") or [],
+    ):
+        for m in source:
             if isinstance(m, dict) and m.get("pageSlug"):
-                slug = m["pageSlug"]
-                break
-    if not slug:
-        return "https://store.epicgames.com/free-games"
-    return f"https://store.epicgames.com/p/{str(slug).rstrip('/')}"
+                candidates.append(str(m["pageSlug"]))
+    for key in ("productSlug", "urlSlug"):
+        value = element.get(key)
+        if value:
+            candidates.append(str(value))
+
+    for slug in candidates:
+        cleaned = slug.strip().strip("/")
+        # `productSlug` sometimes carries a trailing path segment ("game/home").
+        cleaned = cleaned.split("/")[0]
+        if cleaned and not _ID_LIKE.match(cleaned):
+            return f"https://store.epicgames.com/p/{cleaned}"
+
+    # No usable slug: the giveaway page lists everything free right now, which
+    # is a worse link than the right one and a much better link than a 404.
+    return "https://store.epicgames.com/free-games"
 
 
 def _steam_deals(country: str, language: str) -> list[dict[str, Any]]:
@@ -187,6 +226,8 @@ def fetch_feed(
     empty page that looks like "nothing is free".
     """
     cached = _read_cache(cache_path)
+    if cached and cached.get("v") != CACHE_VERSION:
+        cached = None
     if not force and cached and time.time() - cached.get("fetched_at", 0) < TTL_SECONDS:
         return {**cached, "stale": False}
 
@@ -212,6 +253,7 @@ def fetch_feed(
         return {**cached, "stale": True, "errors": errors}
 
     payload = {
+        "v": CACHE_VERSION,
         "free": free,
         "deals": deals,
         "errors": errors,
