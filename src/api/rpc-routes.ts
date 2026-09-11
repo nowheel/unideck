@@ -89,6 +89,9 @@ export const rpcRoutes = {
   armCircuitBypass: "arm_circuit_bypass",
   getPlaytime: "get_playtime",
   getAllPlaytimes: "get_all_playtimes",
+  // NOSTRI in riapplica.sh — la vetrina. Il frontend non puo' chiamare gli
+  // store: il webview di Steam non ha rotta verso internet (verificato).
+  getStorefrontFeed: "get_storefront_feed",
   // Action dispatcher (ActionRPCMixin) — bidirectional bridge
   dispatchUnifideckAction: "dispatch_unifideck_action",
   // Manual cloud-save status / pull / push (CloudSaveRPCMixin)

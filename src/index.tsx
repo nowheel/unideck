@@ -29,7 +29,8 @@ import { SteamBridge } from "./lib/steam-bridge";
 import { RootProvider } from "./contexts/RootProvider";
 import { QuickAccessPanel } from "./views/QuickAccessPanel";
 import { UnifideckPage } from "./views/UnifideckPage";
-import { UNIFIDECK_ROUTE } from "./lib/routes";
+import { VetrinaPage } from "./views/VetrinaPage";
+import { UNIFIDECK_ROUTE, VETRINA_ROUTE } from "./lib/routes";
 import { applyAppDetailsPatch } from "./views/AppDetailsPatch";
 import { startUnifideckCacheAutoload } from "./lib/library-filters";
 import { startOverviewEnrichment } from "./lib/steam-bridge/overview-enrichment";
@@ -94,6 +95,11 @@ export default definePlugin(() => {
   try {
     routerHook.addRoute(UNIFIDECK_ROUTE, UnifideckPage, { exact: true });
     handles.unifideckRoute = UNIFIDECK_ROUTE;
+    // Vetrina: giochi gratis e sconti. Rotta separata e non una sezione del
+    // catalogo, perche' su 534px di altezza ogni riga fissa sopra la griglia
+    // e' una riga di copertine in meno.
+    routerHook.addRoute(VETRINA_ROUTE, VetrinaPage, { exact: true });
+    handles.vetrinaRoute = VETRINA_ROUTE;
   } catch (e) {
     console.error("[Unifideck] route registration failed:", e);
   }

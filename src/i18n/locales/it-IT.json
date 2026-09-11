@@ -1112,5 +1112,21 @@
     "storeShrank": "{{store}}: {{lost}} giochi non sono in elenco",
     "storeShrankHint": "Non è stato cancellato niente: ricollega lo store dal menu Accesso rapido, poi sincronizza.",
     "dismiss": "Ho capito"
+  },
+  "vetrina": {
+    "title": "Vetrina",
+    "refresh": "Aggiorna",
+    "loading": "Carico…",
+    "failed": "Backend non raggiungibile. Riprova fra poco.",
+    "empty": "Al momento non c'è niente in offerta.",
+    "freeNow": "Gratis ora",
+    "freeSoon": "Presto gratis",
+    "deals": "In offerta",
+    "badgeFree": "GRATIS",
+    "badgeSoon": "PRESTO",
+    "until": "fino al {{date}}",
+    "from": "dal {{date}}",
+    "stale": "dati del {{when}} — store irraggiungibili",
+    "sourcesDown": "{{stores}} non ha risposto; il resto è aggiornato"
   }
 }

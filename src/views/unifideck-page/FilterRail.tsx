@@ -92,6 +92,8 @@ interface Props {
   /** Trigger a library sync; omitted when the context has none. */
   onSync?: () => void;
   syncLabel: string;
+  onVetrina?: () => void;
+  vetrinaLabel?: string;
   isSyncing: boolean;
   /**
    * Slide the rail out of the way. The page decides when — see the
@@ -115,6 +117,8 @@ export const FilterRail: FC<Props> = ({
   countLabel,
   onSync,
   syncLabel,
+  onVetrina,
+  vetrinaLabel,
   isSyncing,
   hidden,
   onFocusWithin,
@@ -260,6 +264,15 @@ export const FilterRail: FC<Props> = ({
         {onSync && (
           <Chip active={false} onActivate={onSync}>
             {isSyncing ? "…" : syncLabel}
+          </Chip>
+        )}
+        {/* Vetrina. Accanto a Sincronizza e non fra i chip di filtro: quelli
+            restringono la griglia, questo porta altrove, e mescolarli
+            renderebbe la riga un elenco di cose che non fanno la stessa
+            cosa. */}
+        {onVetrina && vetrinaLabel && (
+          <Chip active={false} onActivate={onVetrina}>
+            {vetrinaLabel}
           </Chip>
         )}
       </Focusable>

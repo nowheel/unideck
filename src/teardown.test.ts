@@ -23,8 +23,8 @@ const stops = {
 };
 
 // Divergenza da monte — NOSTRI in riapplica.sh.
-// Solo la nostra rotta `/unifideck` passa da routerHook in teardown, quindi
-// monte non ha bisogno di questo mock. Senza, l'import di `@decky/api` in
+// Solo le nostre due rotte passano da routerHook in teardown, quindi monte
+// non ha bisogno di questo mock. Senza, l'import di `@decky/api` in
 // teardown.ts fa fallire l'intero file sotto vitest: `@decky/manifest` non
 // esiste fuori dal bundle Decky.
 const removeRoute = vi.hoisted(() => vi.fn());
@@ -46,14 +46,20 @@ function buildHandles() {
   const calls: Record<string, ReturnType<typeof vi.fn>> = {};
   const fn = (name: string) => (calls[name] = vi.fn());
   // Divergenza da monte — NOSTRI in riapplica.sh.
-  // `unifideckRoute` è una stringa, non un handle con un disposer proprio:
-  // a rimuoverla è routerHook, quindi la spia sta lì. Registrarla comunque in
-  // `calls` la tiene dentro il controllo di copertura sotto.
-  calls.unifideckRoute = removeRoute;
+  // Le rotte sono stringhe, non handle con un disposer proprio: a rimuoverle
+  // e' routerHook, quindi la spia sta li'. Una spia per rotta, distinte per
+  // path, perche' una sola condivisa non direbbe *quale* delle due e' stata
+  // dimenticata — ed e' esattamente la domanda per cui questa tabella esiste.
+  const perRotta: Record<string, ReturnType<typeof vi.fn>> = {
+    "/unifideck": (calls.unifideckRoute = vi.fn()),
+    "/unifideck/vetrina": (calls.vetrinaRoute = vi.fn()),
+  };
+  removeRoute.mockImplementation((path: string) => perRotta[path]?.());
   return {
     calls,
     handles: {
       unifideckRoute: "/unifideck",
+      vetrinaRoute: "/unifideck/vetrina",
       routerPatch: { remove: fn("routerPatch") },
       cacheAutoload: fn("cacheAutoload"),
       libraryPatch: { remove: fn("libraryPatch") },

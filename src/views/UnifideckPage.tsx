@@ -57,6 +57,7 @@ import {
   saveStoreCounts,
 } from "./unifideck-page/preferences";
 import { toSteamAppId } from "../lib/appid";
+import { VETRINA_ROUTE } from "../lib/routes";
 import {
   availableSorts,
   initialOf,
@@ -542,6 +543,8 @@ const UnifideckPageInner: FC = () => {
             countLabel={`${filtered.length} / ${all.length}`}
             onSync={() => void sync.startSync()}
             syncLabel={t("unifideckPage.sync", "Sync")}
+            onVetrina={() => Navigation.Navigate(VETRINA_ROUTE)}
+            vetrinaLabel={t("vetrina.title")}
             isSyncing={sync.isSyncing}
             hidden={railHidden}
             onFocusWithin={setRailFocused}

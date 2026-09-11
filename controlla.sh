@@ -48,7 +48,7 @@ while IFS= read -r riga; do
   riga="${riga%%#*}"
   riga="$(printf '%s' "$riga" | tr -d '[:space:]')"
   [[ -n "$riga" ]] || continue
-  f="py_modules/$riga"
+  f="$riga"
   if [[ -f "$f" && -f "$DEST/$f" ]]; then
     diff -q "$f" "$DEST/$f" >/dev/null 2>&1 \
       && ok "$(basename "$f")" \

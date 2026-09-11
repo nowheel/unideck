@@ -53,7 +53,7 @@ NOSTRI=(
 while IFS= read -r _riga; do
   _riga="${_riga%%#*}"                       # via i commenti
   _riga="$(printf '%s' "$_riga" | tr -d '[:space:]')"
-  [[ -n "$_riga" ]] && NOSTRI+=("py_modules/$_riga")
+  [[ -n "$_riga" ]] && NOSTRI+=("$_riga")
 done < "$REPO/nostri-py.txt"
 unset _riga
 
@@ -134,13 +134,13 @@ Installa con:
     sudo bash "$REPO/installa-root.sh" "$WORK/repo/dist"
 
 Quando sei soddisfatto, riporta i sorgenti fusi in questo repo e sposta
-la base in avanti. I file Python vanno riportati uno per uno: in
+la base in avanti. I file del backend vanno riportati uno per uno: in
 $WORK/repo/py_modules c'e' tutto monte, e copiarlo intero seppellirebbe
 il repo sotto le dipendenze vendored.
     cp -a $WORK/repo/src "$REPO/"
     while IFS= read -r r; do
       r="\${r%%#*}"; r="\$(printf '%s' "\$r" | tr -d '[:space:]')"
-      [ -n "\$r" ] && cp -a "$WORK/repo/py_modules/\$r" "$REPO/py_modules/\$r"
+      [ -n "\$r" ] && cp -a "$WORK/repo/\$r" "$REPO/\$r"
     done < "$REPO/nostri-py.txt"
     echo "$NEW_TAG" > "$REPO/.base-upstream"
 EOF

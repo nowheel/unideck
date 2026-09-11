@@ -1112,5 +1112,22 @@
     "storeShrank": "{{store}}: {{lost}} games are missing from this list",
     "storeShrankHint": "Nothing was deleted — the store needs reconnecting in the Quick Access menu, then a sync.",
     "dismiss": "Got it"
+  },
+  "vetrina": {
+    "_comment": "Fallback: English until translated. Fork addition; no upstream translation to inherit.",
+    "title": "Showcase",
+    "refresh": "Refresh",
+    "loading": "Loading…",
+    "failed": "Could not reach the backend. Try again in a moment.",
+    "empty": "Nothing on offer right now.",
+    "freeNow": "Free now",
+    "freeSoon": "Free soon",
+    "deals": "On sale",
+    "badgeFree": "FREE",
+    "badgeSoon": "SOON",
+    "until": "until {{date}}",
+    "from": "from {{date}}",
+    "stale": "showing {{when}} — stores unreachable",
+    "sourcesDown": "{{stores}} did not answer; the rest is up to date"
   }
 }

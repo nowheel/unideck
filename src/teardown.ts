@@ -32,6 +32,8 @@ export interface TeardownHandles {
   collectionManager?: CollectionManagerHandle | null;
   /** Path of the standalone page route, when registration succeeded. */
   unifideckRoute?: string | null;
+  /** Path of the vetrina route, same contract. */
+  vetrinaRoute?: string | null;
   appStorePatch?: { remove: () => void } | null;
   overviewEnrichment?: (() => void) | null;
   tileStoreBadgePatch?: (() => void) | null;
@@ -86,6 +88,9 @@ const DISPOSERS: Record<keyof TeardownHandles, (h: TeardownHandles) => void> = {
   // router patch che questa tabella esiste per non dimenticare.
   unifideckRoute: (h) => {
     if (h.unifideckRoute) routerHook.removeRoute(h.unifideckRoute);
+  },
+  vetrinaRoute: (h) => {
+    if (h.vetrinaRoute) routerHook.removeRoute(h.vetrinaRoute);
   },
   // Same failure mode: its window listener and SHORTCUT_INSTALL_STATE_CHANGED
   // subscription had no disposer at all until this table existed.

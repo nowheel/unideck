@@ -31,21 +31,21 @@ ORIG="$(dirname "$SRC")"
 LISTA="$ORIG/nostri-py.txt"
 if [[ -f "$LISTA" ]]; then
   echo "→ Copia dei file Python nostri"
-  mkdir -p "$BACKUP/py_modules"
+  mkdir -p "$BACKUP/nostri"
   while IFS= read -r riga; do
     riga="${riga%%#*}"
     riga="$(printf '%s' "$riga" | tr -d '[:space:]')"
     [[ -n "$riga" ]] || continue
-    sorgente="$ORIG/py_modules/$riga"
-    destinazione="$PLUGIN/py_modules/$riga"
+    sorgente="$ORIG/$riga"
+    destinazione="$PLUGIN/$riga"
     if [[ ! -f "$sorgente" ]]; then
-      echo "   ! $riga: assente in $ORIG/py_modules — salto" >&2
+      echo "   ! $riga: assente in $ORIG — salto" >&2
       continue
     fi
     # Backup accanto a quello del bundle, cosi' un ripristino e' una cosa sola.
     if [[ -f "$destinazione" ]]; then
-      mkdir -p "$(dirname "$BACKUP/py_modules/$riga")"
-      cp -a "$destinazione" "$BACKUP/py_modules/$riga"
+      mkdir -p "$(dirname "$BACKUP/nostri/$riga")"
+      cp -a "$destinazione" "$BACKUP/nostri/$riga"
     fi
     install -o root -g root -m 644 -D "$sorgente" "$destinazione"
     echo "   ✓ $riga"

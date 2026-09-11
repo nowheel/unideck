@@ -11,3 +11,7 @@
 
 /** Full-screen Unifideck catalogue page. */
 export const UNIFIDECK_ROUTE = "/unifideck";
+
+/** Vetrina: giochi gratis e sconti. Sotto la rotta del catalogo cosi' le
+ * due restano evidentemente dello stesso plugin nella tabella di Steam. */
+export const VETRINA_ROUTE = "/unifideck/vetrina";
