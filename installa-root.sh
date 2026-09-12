@@ -102,6 +102,30 @@ elif ! "$PY" -c "import sys; sys.path.insert(0, '$PLUGIN/py_modules'); import js
   fi
 fi
 
+# Il profilo Edge condiviso vive in ~/.local/share/unifideck/edge-auth, ma il
+# Flatpak di Edge non ha quel percorso fra i suoi `filesystems`: senza permesso
+# scrive altrove e il profilo resta vuoto per sempre. Misurato — la cartella
+# era di 0 file, datata al giorno dell'installazione, e il negozio si apriva
+# sempre disconnesso. Riguarda anche l'iniezione di cookie che monte fa per
+# Amazon, che su un profilo mai scritto non puo' avere effetto.
+#
+# `--user` agisce sul profilo dell'utente, quindi va eseguito come lui e non
+# come root, altrimenti il permesso finisce a root e Edge non lo vede.
+if command -v flatpak >/dev/null 2>&1; then
+  # NON il proprietario della cartella del plugin: quella e' di root, e un
+  # `flatpak override --user` eseguito come root finisce nel profilo di root,
+  # dove Edge non lo leggera' mai. Serve l'utente che ha invocato sudo.
+  PROPRIETARIO="${SUDO_USER:-deck}"
+  if ! sudo -u "$PROPRIETARIO" flatpak info --show-permissions com.microsoft.Edge 2>/dev/null \
+       | grep -q "unifideck"; then
+    echo "→ Do a Edge accesso al profilo condiviso"
+    sudo -u "$PROPRIETARIO" flatpak override --user \
+      --filesystem="~/.local/share/unifideck:create" com.microsoft.Edge 2>/dev/null \
+      && echo "   ✓ permesso concesso" \
+      || echo "   ! non riuscito — il negozio si aprira' disconnesso" >&2
+  fi
+fi
+
 echo "→ Riavvio di decky-loader"
 systemctl restart decky-loader@deck.service
 

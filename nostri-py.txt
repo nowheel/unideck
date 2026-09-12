@@ -35,6 +35,12 @@ py_modules/unifideck/services/storefront_feed.py
 py_modules/unifideck/rpc/mixins/storefront_feed.py
 main.py
 
+# Negozio Epic gia' autenticato. web_session.py e' nuovo, quindi non puo'
+# entrare in conflitto; storefront.py invece e' di monte, e la divergenza sono
+# le ~30 righe di `_signed_in_url_for` piu' la riga che la chiama.
+py_modules/unifideck/stores/epic/web_session.py
+py_modules/unifideck/launcher/flows/storefront.py
+
 # NON elencare qui py_modules/unifideck/launcher/proton/infrastructure/ge_installer.py:
 # il fix multi-arch di monte (identifica l'albero estratto dallo script
 # `proton` che contiene, invece che dal nome) è più robusto del nostro e lo
