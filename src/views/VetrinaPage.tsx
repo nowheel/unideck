@@ -116,8 +116,23 @@ function openUrl(url: string): void {
  */
 async function openOffer(store: string, url: string, steamAppId?: number | null): Promise<void> {
   if (store === "steam" && steamAppId) {
-    openUrl(`steam://store/${steamAppId}`);
-    return;
+    // `window.open` NON sa gestire lo schema steam://: apre un popup vuoto su
+    // un `data:text/html`. Verificato cliccando davvero, il 12 settembre —
+    // `GameInfoNavButtons` usa quel pattern e ha lo stesso difetto.
+    // `ExecuteSteamURL` e' l'API del client per questi URL, e porta al
+    // browser dello store *dentro* Steam, dove la sessione c'e' (la lista
+    // dei desideri e' visibile, quindi e' autenticato).
+    // Cast locale, come SteamRestartModal: ExecuteSteamURL esiste sul client
+    // ma non nei tipi di @decky/ui.
+    const sc = (
+      window as {
+        SteamClient?: { URL?: { ExecuteSteamURL?: (u: string) => void } };
+      }
+    ).SteamClient;
+    if (sc?.URL?.ExecuteSteamURL) {
+      sc.URL.ExecuteSteamURL(`steam://store/${steamAppId}`);
+      return;
+    }
   }
   if (hasStorefront(store as never) && (await storeReportsConnected(store as never))) {
     const r = await openStorefront(store as never);
