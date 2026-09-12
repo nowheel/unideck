@@ -45,8 +45,10 @@ TTL_SECONDS = 6 * 60 * 60
 #: Bumped whenever the shape of a cached entry changes — a corrected URL
 #: counts. Without it a fix ships and the cache keeps serving the broken
 #: payload for six hours, which looks exactly like the fix not working.
-#: Raised to 2 on 2026-09-11, when the Epic link was pointing at a 404.
-CACHE_VERSION = 2
+#: 2 (2026-09-11): il link Epic puntava a un 404.
+#: 3 (2026-09-12): aggiunto steam_appid, senza il quale la pagina Steam
+#:     si apre nel browser invece che nel client — cioe' slegata.
+CACHE_VERSION = 3
 
 #: Past this the request is abandoned. The page renders without the feed
 #: rather than making the user wait on a storefront having a bad day.
@@ -189,6 +191,11 @@ def _steam_deals(country: str, language: str) -> list[dict[str, Any]]:
                 "title": i.get("name") or "",
                 "image": i.get("large_capsule_image") or i.get("header_image") or "",
                 "url": f"https://store.steampowered.com/app/{i.get('id')}",
+                # L'appid separato dall'URL: con questo la pagina si apre
+                # *dentro* il client Steam (`steam://store/<id>`), dove
+                # l'utente e' gia' autenticato, invece che in un browser che
+                # non lo e'. L'URL http resta per chi non ha il client.
+                "steam_appid": i.get("id"),
                 "discount": int(discount),
                 # Prices arrive in minor units; the frontend formats, we do
                 # not guess at a currency symbol from a country code.

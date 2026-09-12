@@ -23,6 +23,8 @@ import { FC, useCallback, useEffect, useMemo, useState } from "react";
 import { Focusable } from "@decky/ui";
 import { useTranslation } from "react-i18next";
 import { useRPC } from "../api/useRPC";
+import { hasStorefront, openStorefront } from "../services/store/StorefrontLauncher";
+import { storeReportsConnected } from "../services/auth/store-status";
 import { rpcRoutes } from "../api/rpc-routes";
 import { RootProvider } from "../contexts/RootProvider";
 import { C, FOCUS_CSS, MONO } from "./unifideck-page/theme";
@@ -45,6 +47,8 @@ interface Deal {
   image: string;
   url: string;
   discount: number;
+  /** Steam AppID, per aprire la pagina dentro il client invece che nel web. */
+  steam_appid?: number | null;
   price_final?: number | null;
   price_original?: number | null;
   currency?: string;
@@ -83,6 +87,44 @@ function openUrl(url: string): void {
   // Same call the game-info buttons use: a popup inside Steam's own browser,
   // which is the only thing that works in Gaming Mode.
   window.open(url, "_blank", "width=1024,height=768,popup=yes");
+}
+
+/**
+ * Aprire un'offerta dove l'utente e' *gia' autenticato*.
+ *
+ * `window.open` da solo non basta e per un giveaway e' quasi inutile: apre il
+ * browser interno di Steam, che non ha la sessione dello store, e chi ci
+ * arriva vede la pagina giusta e un pulsante di login. Un gioco gratis che
+ * non si riesce a riscattare tanto vale non annunciarlo.
+ *
+ * Due strade, una per fonte, e nessuna delle due tocca monte:
+ *
+ *   - Steam: `steam://store/<appid>` apre la pagina *dentro il client*, dove
+ *     la sessione c'e' per definizione. E' la stessa cosa che fa
+ *     `GameInfoNavButtons` per i giochi della libreria.
+ *   - Epic e gli altri store a browser: `openStorefront` riusa il profilo
+ *     Edge persistente in cui il plugin ha gia' fatto accedere l'utente —
+ *     vedi `StorefrontLauncher`, "the shop opens in that same profile, so
+ *     the live web session carries over". Arriva alla home dello store e non
+ *     alla scheda del gioco, perche' l'URL lo sceglie il backend di monte e
+ *     passargliene uno significherebbe patchare un suo file; Epic mette i
+ *     giveaway in evidenza proprio li'.
+ *
+ * Se lo store non e' collegato il ripiego e' il link diretto: senza account
+ * la scheda del gioco e' piu' utile della vetrina di un negozio in cui non
+ * si entra.
+ */
+async function openOffer(store: string, url: string, steamAppId?: number | null): Promise<void> {
+  if (store === "steam" && steamAppId) {
+    openUrl(`steam://store/${steamAppId}`);
+    return;
+  }
+  if (hasStorefront(store as never) && (await storeReportsConnected(store as never))) {
+    const r = await openStorefront(store as never);
+    if (r.success) return;
+    console.warn("[Vetrina] storefront non aperto, ripiego sul link:", r.error);
+  }
+  openUrl(url);
 }
 
 /** One entry. Focusable rather than a button: pad focus is a class, not DOM. */
@@ -323,7 +365,7 @@ const VetrinaInner: FC = () => {
                         ? t("vetrina.until", { date: formatUntil(g.ends, locale) })
                         : undefined
                     }
-                    onOpen={() => openUrl(g.url)}
+                    onOpen={() => void openOffer(g.store, g.url)}
                   />
                 ))}
               </Section>
@@ -341,7 +383,7 @@ const VetrinaInner: FC = () => {
                         ? t("vetrina.from", { date: formatUntil(g.starts, locale) })
                         : undefined
                     }
-                    onOpen={() => openUrl(g.url)}
+                    onOpen={() => void openOffer(g.store, g.url)}
                   />
                 ))}
               </Section>
@@ -355,7 +397,7 @@ const VetrinaInner: FC = () => {
                     badge={`-${d.discount}%`}
                     badgeTone={C.amber}
                     note={formatPrice(d.price_final, d.currency)}
-                    onOpen={() => openUrl(d.url)}
+                    onOpen={() => void openOffer(d.store, d.url, d.steam_appid)}
                   />
                 ))}
               </Section>
